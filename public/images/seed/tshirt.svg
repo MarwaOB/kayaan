@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000">
+  <rect width="800" height="1000" fill="#fdf4e8"/>
+  <rect x="180" y="170" width="440" height="620" rx="34" fill="#ffffff"/>
+  <path d="M280 240h240l60 100h-100l-20 130h-60l-20-130H220z" fill="#6b4a35"/>
+  <path d="M350 220c40-85 120-85 160 0" stroke="#4a3224" stroke-width="20" fill="none" stroke-linecap="round"/>
+  <rect x="260" y="380" width="280" height="170" rx="22" fill="#e8c89b"/>
+  <text x="400" y="860" text-anchor="middle" font-family="Tahoma, Arial, sans-serif" font-size="36" font-weight="700" fill="#4a3224">تيشيرت عربي</text>
+</svg>

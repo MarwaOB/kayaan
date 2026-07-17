@@ -1,0 +1,298 @@
+// Kayaaan Clothing — Data Model
+// Source: kayaaan-website-full-spec.md §2, §3, §4, §5, §7, §8, §9, §14
+//
+// PostgreSQL via Supabase (pooled DATABASE_URL + DIRECT_URL for migrations).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Categories (§4) — fixed list of 6, admin can mask/unmask each independently.
+// At launch: T-shirts, Totebags, Hoodies visible=true; Joggers, Shorts,
+// Backpacks visible=false.
+// ---------------------------------------------------------------------------
+model Category {
+  id        String   @id @default(cuid())
+  name      String // e.g. "T-shirts"
+  nameAr    String // e.g. "أقمصة"
+  slug      String   @unique
+  visible   Boolean  @default(false) // the "mask/unmask" toggle (§4)
+  position  Int      @default(0) // display order in footer/nav (4 per row, §9)
+  products  Product[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Collections (§6 item 9) — NOT fixed. Admin creates freely, e.g. seasonal drops.
+// ---------------------------------------------------------------------------
+model Collection {
+  id          String               @id @default(cuid())
+  name        String
+  nameAr      String?
+  slug        String               @unique
+  description String?
+  coverImage  String?
+  visible     Boolean              @default(true)
+  position    Int                  @default(0)
+  products    CollectionProduct[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+}
+
+// Explicit join table (rather than an implicit m2m) so a product's position
+// within a given collection carousel can be controlled by the admin.
+model CollectionProduct {
+  id           String     @id @default(cuid())
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  position     Int        @default(0)
+
+  @@unique([collectionId, productId])
+}
+
+// ---------------------------------------------------------------------------
+// Product (§3) — THE field split that matters most in this whole spec.
+//
+// Customer-safe fields: name, slug, description, careInstructions, salePrice,
+// discountPrice, color/size (via variants), inStock, images, trending.
+//
+// Owner-only fields (must never reach the public API/HTML/JS bundle):
+// costPrice, rawPrice, sponsorSpend, profit.
+//
+// This split is enforced in code, not just documented here — see
+// src/lib/queries/publicProduct.ts, which uses an explicit `select` that
+// omits the four owner-only fields entirely (never a bare findMany/findUnique).
+// ---------------------------------------------------------------------------
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique // "SEO link" (§3) — becomes the product page URL
+  description String
+  careInstructions String?
+
+  // --- customer-safe pricing ---
+  salePrice      Float // current listed price
+  discountPrice  Float? // when set, salePrice is shown struck-through (§3, §5)
+
+  // --- owner-only, NEVER expose publicly (§3) ---
+  costPrice     Float? // التكلفة
+  rawPrice      Float? // منتج خام
+  sponsorSpend  Float? // السبونسور
+  profit        Float? // الفائدة
+
+  // --- merchandising flags ---
+  trending    Boolean @default(false) // manual "hot 🔥" toggle (§5, §12 open item)
+  metaDescription String? // exposed only inside <meta>, never rendered on page (§3)
+
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+
+  images      ProductImage[]
+  variants    ProductVariant[]
+  reviews     Review[]
+  collections CollectionProduct[]
+  bundleItems BundleItem[]
+  orderItems  OrderItem[]
+  hotspotLinks Hotspot[] @relation("HotspotLinkedProduct")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+}
+
+// Per color/size combination — this is where real stock lives, so
+// "in stock / out of stock" (§3, §5) is derived from these, not a flat flag.
+model ProductVariant {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  color     String
+  size      String
+  sku       String  @unique
+  stock     Int     @default(0)
+
+  orderItems OrderItem[]
+
+  @@unique([productId, color, size])
+}
+
+model ProductImage {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url         String
+  altText     String?
+  position    Int      @default(0)
+  isLifestyle Boolean  @default(false) // true = eligible for hotspots (§7 item 4)
+  hotspots    Hotspot[]
+}
+
+// "Shop the look" hotspots on lifestyle photos (§7 item 4, §12 open item).
+// One dot on the image -> links to another product entirely.
+model Hotspot {
+  id                String       @id @default(cuid())
+  imageId           String
+  image             ProductImage @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  xPercent          Float // 0-100, position on the image
+  yPercent          Float // 0-100
+  linkedProductId   String
+  linkedProduct     Product      @relation("HotspotLinkedProduct", fields: [linkedProductId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Bundles / Duos (§6 item 8) — own section, separate from Top Selling.
+// ---------------------------------------------------------------------------
+model Bundle {
+  id            String       @id @default(cuid())
+  name          String
+  slug          String       @unique
+  description   String?
+  bundlePrice   Float // combined price, usually < sum of individual items
+  coverImage    String?
+  visible       Boolean      @default(true)
+  items         BundleItem[]
+  orderItems    OrderItem[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model BundleItem {
+  id        String  @id @default(cuid())
+  bundleId  String
+  bundle    Bundle  @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int     @default(1)
+}
+
+// ---------------------------------------------------------------------------
+// Orders (§2) — status pipeline exactly matching the current EasyOrders-style
+// dashboard, plus "lost/abandoned" tracking.
+// ---------------------------------------------------------------------------
+
+model Order {
+  id               String        @id @default(cuid())
+  customerName     String
+  phone            String // re-validated server-side (§14.2)
+  email            String?
+  shippingAddress  String
+  wilaya           String
+  commune          String // Yalidine prices by commune, not just wilaya (§13)
+  requiresManualDeliveryQuote Boolean @default(false) // home delivery pricing varies by wilaya (§1)
+  deliveryMethod   String        // "HOME" | "OFFICE" — matches Yalidine's is_stopdesk (false/true)
+  deliveryFee      Float         @default(0)
+  status           String        @default("AWAITING_PAYMENT")
+
+  yalidineTracking String? // set once the parcel is created (order confirmed -> Yalidine, §13)
+  yalidineLabelUrl String?
+
+  couponId         String?
+  coupon           Coupon?       @relation(fields: [couponId], references: [id])
+
+  items            OrderItem[]
+  statusHistory    OrderStatusHistory[]
+
+  totalAmount      Float
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([phone])
+  @@index([status])
+}
+
+// A line item is EITHER a single product variant OR a bundle, never both.
+model OrderItem {
+  id        String          @id @default(cuid())
+  orderId   String
+  order     Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String?
+  product   Product?        @relation(fields: [productId], references: [id])
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+
+  bundleId  String?
+  bundle    Bundle?         @relation(fields: [bundleId], references: [id])
+
+  quantity  Int
+  unitPrice Float // snapshot at time of order, not a live join to Product.salePrice
+}
+
+// Full audit trail of every transition, so §14.7's "verify every valid
+// transition, reject invalid ones" has something to test against.
+model OrderStatusHistory {
+  id        String      @id @default(cuid())
+  orderId   String
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    String
+  note      String?
+  changedAt DateTime    @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Marketing / operations (§2 admin feature list)
+// ---------------------------------------------------------------------------
+model Coupon {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  discountType  String // "PERCENT" | "FIXED"
+  discountValue Float
+  active        Boolean  @default(true)
+  expiresAt     DateTime?
+  orders        Order[]
+  createdAt     DateTime @default(now())
+}
+
+// الارقام المحظورة من الطلب — blocked from ordering entirely.
+model BlockedNumber {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  reason    String?
+  blockedAt DateTime @default(now())
+}
+
+model Review {
+  id           String   @id @default(cuid())
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customerName String
+  rating       Int // 1-5
+  comment      String?
+  approved     Boolean  @default(false) // admin moderates before it shows under the product (§7)
+  createdAt    DateTime @default(now())
+}
+
+model NewsletterSubscriber {
+  id           String   @id @default(cuid())
+  contact      String   @unique // email or phone
+  subscribedAt DateTime @default(now())
+  active       Boolean  @default(true)
+}
+
+// Admin-editable homepage content (§14.11) — swappable video, banner
+// messages, running-bar items. Never hardcoded into components.
+model SiteSetting {
+  key       String   @id // e.g. "homepage_video_url", "top_banner_messages", "running_bar_items"
+  value     String // JSON-encoded when the value is a list/object
+  updatedAt DateTime @updatedAt
+}
+
+// Single-owner auth for the /admin route tree (§13 — NextAuth/Auth.js sits on top of this).
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}

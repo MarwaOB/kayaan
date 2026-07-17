@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000">
+  <rect width="800" height="1000" fill="#fbefdf"/>
+  <rect x="235" y="190" width="330" height="560" rx="48" fill="#fffaf4"/>
+  <rect x="290" y="240" width="220" height="430" rx="30" fill="#c9a876"/>
+  <path d="M320 260h160v90H320z" fill="#6b4a35"/>
+  <rect x="245" y="770" width="310" height="70" rx="22" fill="#4a3224"/>
+  <text x="400" y="860" text-anchor="middle" font-family="Tahoma, Arial, sans-serif" font-size="34" font-weight="700" fill="#4a3224">توت باغ</text>
+</svg>

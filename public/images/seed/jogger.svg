@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000">
+  <rect width="800" height="1000" fill="#f6ece3"/>
+  <rect x="180" y="220" width="440" height="520" rx="72" fill="#fffaf4"/>
+  <rect x="240" y="280" width="320" height="360" rx="46" fill="#6b4a35"/>
+  <rect x="310" y="370" width="180" height="150" rx="24" fill="#4a3224"/>
+  <text x="400" y="860" text-anchor="middle" font-family="Tahoma, Arial, sans-serif" font-size="34" font-weight="700" fill="#4a3224">Jogger</text>
+</svg>
