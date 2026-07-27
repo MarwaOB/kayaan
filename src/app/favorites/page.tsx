@@ -1,52 +1,22 @@
-"use client";
+import type { Metadata } from "next";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useFavorites } from "@/lib/store";
-import { ProductCard, type ProductCardData } from "@/components/shared/ProductCard";
+import { FavoritesView } from "@/components/listing/FavoritesView";
+import { LOOKBOOK, toEditorialFrame } from "@/lib/lookbook";
+
+export const metadata: Metadata = {
+  title: "المفضلة | كيان",
+  description: "القطع التي حفظتها على هذا الجهاز.",
+};
 
 /**
- * Favorites page (§8) — no accounts, so favorited product IDs live in
- * localStorage via `useFavorites`. This page resolves those IDs back to
- * full product data through the same owner-field-safe public API used
- * everywhere else, then renders them with the normal ProductCard.
+ * Favourites (§8) — a server shell around a client view.
+ *
+ * The split exists for one reason: `lookbook.ts` reads `media-manifest.json`,
+ * which is ~64 KB of blur placeholders. The page's content is unavoidably
+ * client-side (the IDs live in localStorage, there are no accounts), but the
+ * photograph for its empty state is picked here, on the server, and crosses the
+ * boundary as three strings.
  */
 export default function FavoritesPage() {
-  const favoriteIds = useFavorites((s) => s.favoriteIds);
-  const [products, setProducts] = useState<ProductCardData[] | null>(null);
-
-  useEffect(() => {
-    if (favoriteIds.length === 0) {
-      setProducts([]);
-      return;
-    }
-    fetch(`/api/products?ids=${favoriteIds.join(",")}`)
-      .then((res) => res.json())
-      .then((data) => setProducts(data.products))
-      .catch(() => setProducts([]));
-  }, [favoriteIds]);
-
-  return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-6 text-xl font-bold">المفضلة</h1>
-
-      {products === null ? (
-        <p className="text-sm text-neutral-400">جاري التحميل...</p>
-      ) : products.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 py-16 text-center">
-          <p className="text-5xl">🤍</p>
-          <p className="text-lg font-bold">لا توجد عناصر في المفضلة</p>
-          <Link href="/" className="rounded-full bg-kayaan-brown px-6 py-2.5 text-sm font-bold text-white">
-            تصفح المنتجات
-          </Link>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {products.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
-      )}
-    </main>
-  );
+  return <FavoritesView emptyFrame={toEditorialFrame(LOOKBOOK[2] ?? null)} />;
 }

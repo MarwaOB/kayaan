@@ -12,6 +12,30 @@ import { prisma } from "@/lib/db";
  * `/admin/reviews` (`src/lib/queries/adminReview.ts`).
  */
 
+export type ReviewSummary = { count: number; average: number };
+
+/**
+ * Aggregate of every approved review across publicly reachable products —
+ * the number under the testimonials on the home page (§6.10).
+ *
+ * Deliberately reads the `Review` table rather than averaging the
+ * admin-authored `testimonials` site setting. Those are marketing copy chosen
+ * by the shop; this is what customers actually submitted and an admin actually
+ * approved. Publishing the second as if it were the first is the kind of small
+ * dishonesty that makes every other trust signal on the page worth less.
+ *
+ * Masked categories are excluded, matching every other public query (§4).
+ */
+export async function getPublicReviewSummary(): Promise<ReviewSummary> {
+  const result = await prisma.review.aggregate({
+    where: { approved: true, product: { category: { visible: true } } },
+    _avg: { rating: true },
+    _count: { _all: true },
+  });
+
+  return { count: result._count._all, average: result._avg.rating ?? 0 };
+}
+
 export type SubmitReviewInput = {
   customerName: string;
   rating: number;

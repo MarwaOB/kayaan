@@ -11,6 +11,17 @@
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:studio": "prisma studio",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down -v",
+    "db:setup": "npm run db:up && npm run db:migrate && npm run db:seed",
+    "db:migrate": "dotenv -e .env.local -- prisma migrate deploy",
+    "db:seed": "dotenv -e .env.local -- tsx prisma/seed.ts",
+    "db:studio": "dotenv -e .env.local -- prisma studio",
+    "test:local": "dotenv -e .env.local -- vitest run",
+    "build:local": "dotenv -e .env.local -- next build",
+    "assets:prepare": "node scripts/prepare-assets.mjs",
+    "assets:rebuild": "node scripts/prepare-assets.mjs --force",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -25,14 +36,16 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
-    "tailwindcss": "^3.4.13",
-    "postcss": "^8.5.10",
-    "autoprefixer": "^10.4.20",
-    "prisma": "^5.20.0",
-    "typescript": "^5.6.2",
-    "tsx": "^4.19.1",
-    "vitest": "^2.1.1",
     "@types/node": "^20.16.10",
-    "@types/react": "^18.3.10"
+    "@types/react": "^18.3.10",
+    "autoprefixer": "^10.4.20",
+    "dotenv-cli": "^11.0.0",
+    "postcss": "^8.5.10",
+    "prisma": "^5.20.0",
+    "sharp": "^0.35.3",
+    "tailwindcss": "^3.4.13",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.1"
   }
 }

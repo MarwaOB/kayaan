@@ -4,6 +4,24 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 /**
+ * Tracks whether the persisted stores have been read back from localStorage.
+ *
+ * Both stores use `skipHydration`, so on the server — and on the very first
+ * client render — the cart and favourites are empty. Anything whose markup
+ * depends on their contents must wait for this flag, or the server HTML and the
+ * first client render disagree and React discards the whole server tree
+ * ("Hydration failed… the entire root will switch to client rendering").
+ *
+ * It also removes the flash of an empty cart on /cart and /checkout.
+ */
+type HydrationState = { hydrated: boolean; markHydrated: () => void };
+
+export const useStoreHydration = create<HydrationState>((set) => ({
+  hydrated: false,
+  markHydrated: () => set({ hydrated: true }),
+}));
+
+/**
  * §8: no customer accounts, but favorites must persist across visits on the
  * same device. localStorage via zustand's `persist` middleware is exactly
  * that — no login, no server round-trip.
@@ -26,7 +44,9 @@ export const useFavorites = create<FavoritesState>()(
         })),
       isFavorite: (productId) => get().favoriteIds.includes(productId),
     }),
-    { name: "kayaan-favorites" }
+    // Read back by <StoreHydration /> after mount, never at module load — see
+    // useStoreHydration above.
+    { name: "kayaan-favorites", skipHydration: true }
   )
 );
 
@@ -76,6 +96,6 @@ export const useCart = create<CartState>()(
       totalCount: () => get().lines.reduce((sum, l) => sum + l.quantity, 0),
       totalPrice: () => get().lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0),
     }),
-    { name: "kayaan-cart" }
+    { name: "kayaan-cart", skipHydration: true }
   )
 );

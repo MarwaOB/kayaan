@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useCart, useFavorites } from "@/lib/store";
+import { useCart, useFavorites, useStoreHydration } from "@/lib/store";
+import { Logo } from "@/components/brand/Logo";
+import { IconBag, IconChevronEnd, IconClose, IconHeart, IconMenu } from "@/components/ui/Icon";
+import { MENU_SHOT } from "@/lib/lookbook";
+import { toSrcSet } from "@/lib/media";
 
 type NavCategory = { name: string; nameAr: string; slug: string };
-type NavPage = { label: string; href: string };
 
 type MenuSection = {
   id: string;
@@ -14,7 +17,7 @@ type MenuSection = {
   items: Array<{ label: string; href: string; description?: string }>;
 };
 
-const PAGES: NavPage[] = [
+const PAGES = [
   { label: "دليل المقاسات", href: "/pages/size-guide" },
   { label: "من نحن؟", href: "/pages/about" },
   { label: "سياسة الطلب والشحن", href: "/pages/shipping-policy" },
@@ -24,15 +27,82 @@ const PAGES: NavPage[] = [
 ];
 
 /**
- * Header (§6.2): logo centered, cart icon, favorites icon, hamburger menu.
- * The hamburger opens a Kith-style mega-menu (§10): a sectioned navigation
- * experience with a preview panel and quick-access links.
+ * Header (spec §6.2) + mega-menu (spec §10, Kith reference).
+ *
+ * Two changes of substance over the old header:
+ *
+ * 1. It renders the actual logo. The previous version set the string "كيان" in
+ *    a bold `<Link>` — the brand has five real lockups and none were being used.
+ * 2. It is transparent over the hero and only takes on a surface once you
+ *    scroll, so the full-bleed hero the brief asks for (R6) actually reaches
+ *    the top of the viewport instead of starting under a bar.
+ *
+ * The old Latin eyebrows ("التصفح" set in `tracking-[0.3em]`) are gone —
+ * letter-spacing breaks Arabic cursive joins (DESIGN-SYSTEM.md §3.4).
  */
 export function Header({ categories }: { categories: NavCategory[] }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState("categories");
-  const totalCount = useCart((s) => s.totalCount());
-  const favoriteCount = useFavorites((s) => s.favoriteIds.length);
+  const [scrolled, setScrolled] = useState(false);
+  // Counts stay at zero until localStorage has been read, so the server markup
+  // and the first client render match (see useStoreHydration).
+  const hydrated = useStoreHydration((s) => s.hydrated);
+  const cartCount = useCart((s) => s.totalCount());
+  const favCount = useFavorites((s) => s.favoriteIds.length);
+  const totalCount = hydrated ? cartCount : 0;
+  const favoriteCount = hydrated ? favCount : 0;
+
+  const panelRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  /**
+   * Publishes the header's real height as `--k-header-h` so anything pinning
+   * beneath it (the listing toolbar) sits flush. globals.css carries measured
+   * defaults for the server render and for pages without this header; this
+   * only ever corrects them, so a failure here degrades to a few pixels rather
+   * than to a broken layout.
+   */
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+
+    const publish = () =>
+      document.documentElement.style.setProperty("--k-header-h", `${el.offsetHeight}px`);
+
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--k-header-h");
+    };
+  }, []);
+
+  // Esc closes, focus returns to the trigger, body scroll locks (§9).
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    panelRef.current?.focus();
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+      triggerRef.current?.focus();
+    };
+  }, [menuOpen]);
 
   const sections: MenuSection[] = [
     {
@@ -44,7 +114,7 @@ export function Header({ categories }: { categories: NavCategory[] }) {
     {
       id: "collections",
       title: "التشكيلات",
-      subtitle: "المجموعات والحدود الجديدة",
+      subtitle: "المجموعات والإصدارات الجديدة",
       items: [
         { label: "إطلاقة رمضان 2026", href: "/collections/drop-ramadan-2026", description: "تشكيلة جديدة مميزة" },
         { label: "الأكثر مبيعاً", href: "/top-selling", description: "أفضل القطع المختارة" },
@@ -53,151 +123,236 @@ export function Header({ categories }: { categories: NavCategory[] }) {
     {
       id: "pages",
       title: "المعلومات",
-      subtitle: "من نحن؟ والسياسات والتوجيهات",
+      subtitle: "من نحن، والسياسات، ودليل المقاسات",
       items: PAGES.map((p) => ({ label: p.label, href: p.href })),
     },
   ];
 
-  const activeSection = sections.find((section) => section.id === activeSectionId) ?? sections[0];
+  const activeSection = sections.find((s) => s.id === activeSectionId) ?? sections[0];
+
+  const iconButton =
+    "grid h-11 w-11 place-items-center rounded-pill transition duration-fast ease-k hover:bg-brand-900/5";
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-neutral-200 bg-kayaan-bg/95 backdrop-blur">
-        <div className="mx-auto grid max-w-6xl grid-cols-3 items-center px-4 py-3">
-          <button
-            type="button"
-            onClick={() => setMenuOpen(true)}
-            aria-label="القائمة"
-            className="justify-self-start rounded-full border border-stone-300 bg-white/80 p-2 text-xl shadow-sm transition hover:bg-white"
-          >
-            ☰
-          </button>
+      <header
+        ref={headerRef}
+        className={`sticky top-0 z-40 transition-colors duration-base ease-k ${
+          scrolled ? "border-b border-line bg-bg/90 shadow-1 backdrop-blur-md" : "border-b border-transparent bg-bg"
+        }`}
+      >
+        <div className="container-k-wide grid grid-cols-[1fr_auto_1fr] items-center py-3">
+          <div className="flex items-center gap-1 justify-self-start">
+            <button
+              ref={triggerRef}
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              aria-label="فتح القائمة"
+              aria-expanded={menuOpen}
+              className={iconButton}
+            >
+              <IconMenu className="h-5 w-5" />
+            </button>
+          </div>
 
-          <Link href="/" className="justify-self-center text-xl font-bold tracking-wide text-kayaan-brownDark">
-            كيان
+          <Link href="/" aria-label="كيان — الصفحة الرئيسية" className="justify-self-center py-1">
+            <Logo mark="wordmark" colorway="espresso" width={104} priority />
           </Link>
 
-          <div className="flex items-center gap-4 justify-self-end">
-            <Link href="/favorites" aria-label="المفضلة" className="relative text-xl">
-              ♡
-              {favoriteCount > 0 && (
-                <span className="absolute -top-2 -end-2 grid h-4 w-4 place-items-center rounded-full bg-kayaan-brown text-[10px] text-white">
-                  {favoriteCount}
-                </span>
-              )}
+          <div className="flex items-center gap-1 justify-self-end">
+            <Link href="/favorites" aria-label={`المفضلة (${favoriteCount})`} className={`relative ${iconButton}`}>
+              <IconHeart className="h-5 w-5" />
+              {favoriteCount > 0 && <Badge>{favoriteCount}</Badge>}
             </Link>
-            <Link href="/cart" aria-label="السلة" className="relative text-xl">
-              🛍️
-              {totalCount > 0 && (
-                <span className="absolute -top-2 -end-2 grid h-4 w-4 place-items-center rounded-full bg-kayaan-brown text-[10px] text-white">
-                  {totalCount}
-                </span>
-              )}
+            <Link href="/cart" aria-label={`السلة (${totalCount})`} className={`relative ${iconButton}`}>
+              <IconBag className="h-5 w-5" />
+              {totalCount > 0 && <Badge>{totalCount}</Badge>}
             </Link>
           </div>
         </div>
+
+        {/* Kith-style top-level category rail — desktop only; on mobile these
+            live in the mega-menu rather than being crushed into a scroller. */}
+        <nav aria-label="الأقسام" className="hidden border-t border-line/60 md:block">
+          <div className="container-k-wide flex items-center justify-center gap-8 py-2.5">
+            {categories.slice(0, 6).map((c) => (
+              <Link
+                key={c.slug}
+                href={`/categories/${c.slug}`}
+                className="relative py-1 text-body-sm text-ink-muted transition-colors duration-fast ease-k after:absolute after:inset-x-0 after:-bottom-0.5 after:h-px after:origin-right after:scale-x-0 after:bg-brand-700 after:transition-transform after:duration-base after:ease-k hover:text-ink hover:after:scale-x-100"
+              >
+                {c.nameAr}
+              </Link>
+            ))}
+            <Link
+              href="/top-selling"
+              className="py-1 text-body-sm font-semibold text-brand-700 transition-colors duration-fast ease-k hover:text-brand-800"
+            >
+              الأكثر مبيعاً
+            </Link>
+          </div>
+        </nav>
       </header>
 
+      {/* ---- Mega-menu ---- */}
       <div
-        className={`fixed inset-0 z-50 flex justify-start transition-all duration-300 ${
+        className={`fixed inset-0 z-50 transition-opacity duration-slow ease-k ${
           menuOpen ? "visible opacity-100" : "invisible opacity-0"
         }`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="قائمة التصفح"
       >
-        <div
-          className="absolute inset-0 bg-neutral-900/45 backdrop-blur-sm transition-opacity duration-300"
+        <button
+          type="button"
+          aria-label="إغلاق القائمة"
           onClick={() => setMenuOpen(false)}
+          className="absolute inset-0 h-full w-full cursor-default bg-brand-900/45 backdrop-blur-sm"
         />
 
         <div
-          className={`relative z-10 flex h-full w-full max-w-5xl flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out md:flex-row ${
+          ref={panelRef}
+          tabIndex={-1}
+          className={`absolute inset-y-0 start-0 flex h-full w-full max-w-5xl flex-col bg-bg shadow-2 outline-none transition-transform duration-slow ease-k md:flex-row ${
             menuOpen ? "translate-x-0" : "translate-x-full"
           }`}
-          onClick={(e) => e.stopPropagation()}
         >
-          <div className="w-full bg-kayaan-bg/70 p-6 md:w-[34%] md:p-8">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-kayaan-brown">التصفح</p>
-                <h2 className="mt-1 text-xl font-bold text-kayaan-ink">استكشف كيان</h2>
-              </div>
-              <button
-                onClick={() => setMenuOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-neutral-600 shadow-sm transition hover:bg-neutral-100"
-                aria-label="إغلاق القائمة"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="mt-6 flex flex-wrap gap-2 md:flex-col">
-              {sections.map((section) => (
+          {/* Rail */}
+          <div className="flex shrink-0 flex-col justify-between border-line bg-surface-sunken p-6 md:w-[30%] md:border-e md:p-8">
+            <div>
+              <div className="flex items-start justify-between gap-4">
+                <Logo mark="lockup-horizontal" colorway="espresso" width={150} />
                 <button
-                  key={section.id}
                   type="button"
-                  onClick={() => setActiveSectionId(section.id)}
-                  className={`rounded-full px-4 py-2 text-right text-sm font-semibold transition ${
-                    activeSection.id === section.id
-                      ? "bg-kayaan-brown text-white shadow"
-                      : "bg-white text-kayaan-ink hover:bg-kayaan-pink"
-                  }`}
+                  onClick={() => setMenuOpen(false)}
+                  aria-label="إغلاق القائمة"
+                  className="grid h-10 w-10 place-items-center rounded-pill bg-surface text-ink-muted transition duration-fast ease-k hover:text-ink"
                 >
-                  {section.title}
+                  <IconClose className="h-5 w-5" />
                 </button>
-              ))}
+              </div>
+
+              <div className="mt-8 flex flex-wrap gap-2 md:flex-col md:gap-1">
+                {sections.map((section) => (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => setActiveSectionId(section.id)}
+                    aria-current={activeSection.id === section.id}
+                    className={`rounded-sm px-4 py-3 text-start text-body font-semibold transition duration-fast ease-k ${
+                      activeSection.id === section.id
+                        ? "bg-brand-700 text-white"
+                        : "text-ink hover:bg-brand-100"
+                    }`}
+                  >
+                    {section.title}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="mt-8 space-y-2 border-t border-stone-200 pt-6">
-              <Link href="/favorites" onClick={() => setMenuOpen(false)} className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-kayaan-ink shadow-sm">
-                <span>المفضلة</span>
-                <span>♡</span>
-              </Link>
-              <Link href="/cart" onClick={() => setMenuOpen(false)} className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-kayaan-ink shadow-sm">
-                <span>السلة</span>
-                <span>🛍️</span>
-              </Link>
+            <div className="mt-8 space-y-1 border-t border-line pt-6">
+              <MenuQuickLink href="/favorites" onClick={() => setMenuOpen(false)} label="المفضلة" count={favoriteCount}>
+                <IconHeart className="h-[18px] w-[18px]" />
+              </MenuQuickLink>
+              <MenuQuickLink href="/cart" onClick={() => setMenuOpen(false)} label="السلة" count={totalCount}>
+                <IconBag className="h-[18px] w-[18px]" />
+              </MenuQuickLink>
             </div>
           </div>
 
-          <div className="flex-1 bg-white p-6 md:p-8">
-            <div className="grid h-full gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+          {/* Panel */}
+          <div className="flex-1 overflow-y-auto p-6 md:p-10">
+            <div className="grid h-full gap-8 lg:grid-cols-[1.1fr_0.9fr]">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-kayaan-brown">{activeSection.title}</p>
-                <h3 className="mt-2 text-2xl font-bold text-kayaan-ink">{activeSection.subtitle}</h3>
+                <h2 className="font-display text-h1 text-ink">{activeSection.title}</h2>
+                <p className="mt-1.5 text-body-sm text-ink-muted">{activeSection.subtitle}</p>
 
-                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <div className="mt-6 flex flex-col">
                   {activeSection.items.map((item) => (
                     <Link
                       key={item.href}
                       href={item.href}
                       onClick={() => setMenuOpen(false)}
-                      className="rounded-[1.25rem] border border-stone-200 bg-kayaan-bg/80 p-4 transition hover:-translate-y-0.5 hover:border-kayaan-accent hover:bg-white"
+                      className="group flex items-center justify-between gap-4 border-b border-line py-4 transition-colors duration-fast ease-k hover:border-brand-400"
                     >
-                      <p className="text-sm font-semibold text-kayaan-ink">{item.label}</p>
-                      {item.description && <p className="mt-1 text-xs text-neutral-600">{item.description}</p>}
+                      <span>
+                        <span className="block text-body font-medium text-ink group-hover:text-brand-700">
+                          {item.label}
+                        </span>
+                        {item.description && (
+                          <span className="mt-0.5 block text-body-sm text-ink-muted">{item.description}</span>
+                        )}
+                      </span>
+                      <IconChevronEnd className="h-4 w-4 shrink-0 text-ink-subtle transition-transform duration-base ease-k group-hover:-translate-x-1 group-hover:text-brand-700" />
                     </Link>
                   ))}
                 </div>
               </div>
 
-              <div className="relative overflow-hidden rounded-[2rem] bg-kayaan-pink">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/images/seed/hero-1.svg"
-                  alt="كيان ستايل"
-                  className="h-full w-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/75 via-neutral-900/20 to-transparent" />
-                <div className="absolute bottom-0 p-6 text-white">
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-kayaan-accent">مجموعة صيف 2026</p>
-                  <h4 className="mt-2 text-xl font-bold leading-snug">أكثر من مجرد ملابس، ستايل يعبّر عنك.</h4>
-                </div>
-              </div>
+              {/* Lifestyle preview, per the Kith reference. */}
+              {MENU_SHOT && (
+                <Link
+                  href="/top-selling"
+                  onClick={() => setMenuOpen(false)}
+                  className="group relative hidden overflow-hidden rounded-md bg-surface-sunken lg:block"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={MENU_SHOT.image.src}
+                    srcSet={toSrcSet(MENU_SHOT.image)}
+                    sizes="420px"
+                    alt={MENU_SHOT.alt}
+                    draggable={false}
+                    className="no-save h-full w-full object-cover transition-transform duration-slow ease-k group-hover:scale-[1.03]"
+                  />
+                  <div className="scrim-k absolute inset-0" />
+                  <div className="absolute inset-x-0 bottom-0 p-6">
+                    <p className="font-display text-h2 leading-snug text-white">أكثر من مجرد ملابس</p>
+                    <p className="mt-1 text-body-sm text-brand-200">تصفّح القطع الأكثر طلباً</p>
+                  </div>
+                </Link>
+              )}
             </div>
           </div>
         </div>
       </div>
     </>
+  );
+}
+
+function Badge({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="tabular absolute end-1.5 top-1.5 grid h-[18px] min-w-[18px] place-items-center rounded-pill bg-brand-700 px-1 text-[11px] font-semibold leading-none text-white">
+      {children}
+    </span>
+  );
+}
+
+function MenuQuickLink({
+  href,
+  label,
+  count,
+  onClick,
+  children,
+}: {
+  href: string;
+  label: string;
+  count: number;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className="flex items-center justify-between rounded-sm px-3 py-3 text-body font-medium text-ink transition duration-fast ease-k hover:bg-brand-100"
+    >
+      <span className="flex items-center gap-2.5">
+        {children}
+        {label}
+      </span>
+      {count > 0 && <span className="tabular text-body-sm text-ink-muted">{count}</span>}
+    </Link>
   );
 }

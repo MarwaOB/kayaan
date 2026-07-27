@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 
 import { getPublicCategories } from "@/lib/queries/publicCategory";
 import { getPublicCollectionBySlug } from "@/lib/queries/publicMerchandising";
@@ -7,8 +8,29 @@ import { Header } from "@/components/home/Header";
 import { Footer } from "@/components/home/Footer";
 import { TopBanner } from "@/components/home/TopBanner";
 import { WhatsAppBubble } from "@/components/home/WhatsAppBubble";
-import { ProductCard } from "@/components/shared/ProductCard";
+import { ListingHero } from "@/components/listing/ListingHero";
+import { ListingEmpty, ProductGrid } from "@/components/listing/ProductGrid";
+import { toListingProduct } from "@/lib/listing";
+import { editorialFrames, frameOffset, toEditorialFrame, STATEMENT_SHOT, type EditorialFrame } from "@/lib/lookbook";
 
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const collection = await getPublicCollectionBySlug(params.slug);
+  if (!collection) return {};
+  const name = collection.nameAr ?? collection.name;
+  return {
+    title: `${name} | كيان`,
+    description: collection.description ?? `تشكيلة ${name} من كيان.`,
+  };
+}
+
+/**
+ * Collection listing (spec §6.9).
+ *
+ * A collection is a curated statement, not a warehouse shelf — so unlike the
+ * category page it keeps its own order as the default sort ("ترتيب التشكيلة"),
+ * and it leads with the admin's cover image where one exists rather than
+ * substituting a stock shot from the lookbook.
+ */
 export default async function CollectionPage({ params }: { params: { slug: string } }) {
   const [categories, collection, homepageContent] = await Promise.all([
     getPublicCategories(),
@@ -18,28 +40,44 @@ export default async function CollectionPage({ params }: { params: { slug: strin
 
   if (!collection) notFound();
 
+  const name = collection.nameAr ?? collection.name;
+
+  // The admin's own cover wins. Only when there isn't one does the page borrow
+  // a lookbook frame — an editorial page with no image at the top is not an
+  // option, and a grey placeholder is worse than a borrowed photograph.
+  const hero: EditorialFrame | null = collection.coverImage
+    ? { src: collection.coverImage, alt: name }
+    : toEditorialFrame(STATEMENT_SHOT);
+
+  const editorial = editorialFrames(2, frameOffset(params.slug), [name]);
+
   return (
     <>
       <TopBanner messages={homepageContent.bannerMessages} />
       <Header categories={categories} />
 
-      <main className="px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8 rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
-          <h1 className="text-2xl font-bold text-kayaan-ink">{collection.nameAr ?? collection.name}</h1>
-          <p className="mt-2 text-sm text-neutral-600">{collection.description ?? "تصفح هذه التشكيلة المختارة."}</p>
-        </div>
+      <main>
+        <ListingHero
+          crumbs={[{ label: "الرئيسية", href: "/" }, { label: name }]}
+          eyebrow="تشكيلة"
+          title={name}
+          description={collection.description ?? "قطع مختارة معاً، بنفس الروح."}
+          count={collection.products.length}
+          frame={hero}
+        />
 
-        {collection.products.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-neutral-300 bg-kayaan-pink/30 p-10 text-center text-neutral-700">
-            لا توجد منتجات في هذه التشكيلة حالياً.
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {collection.products.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        )}
+        <ProductGrid
+          products={collection.products.map(toListingProduct)}
+          defaultSortLabel="ترتيب التشكيلة"
+          editorial={editorial}
+          empty={
+            <ListingEmpty
+              title="التشكيلة قيد التحضير"
+              body="لم تُضَف قطع هذه التشكيلة بعد. عُد قريباً — أو تصفّح ما هو متاح الآن في المتجر."
+              frame={hero}
+            />
+          }
+        />
       </main>
 
       <Footer categories={categories} />

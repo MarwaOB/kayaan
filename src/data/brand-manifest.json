@@ -1,0 +1,168 @@
+{
+  "generatedAt": "2026-07-26T10:38:13.533Z",
+  "generatedBy": "scripts/prepare-assets.mjs",
+  "logos": [
+    {
+      "mark": "badge-framed",
+      "colorway": "espresso",
+      "hex": "#654746",
+      "png": "/brand/kayaan-badge-framed-espresso.png",
+      "webp": "/brand/kayaan-badge-framed-espresso.webp",
+      "width": 1024,
+      "height": 770
+    },
+    {
+      "mark": "badge-framed",
+      "colorway": "rosewood",
+      "hex": "#865e5d",
+      "png": "/brand/kayaan-badge-framed-rosewood.png",
+      "webp": "/brand/kayaan-badge-framed-rosewood.webp",
+      "width": 1024,
+      "height": 770
+    },
+    {
+      "mark": "badge-framed",
+      "colorway": "sand",
+      "hex": "#e5d2b8",
+      "png": "/brand/kayaan-badge-framed-sand.png",
+      "webp": "/brand/kayaan-badge-framed-sand.webp",
+      "width": 1024,
+      "height": 771
+    },
+    {
+      "mark": "badge-framed",
+      "colorway": "taupe",
+      "hex": "#9e816d",
+      "png": "/brand/kayaan-badge-framed-taupe.png",
+      "webp": "/brand/kayaan-badge-framed-taupe.webp",
+      "width": 1024,
+      "height": 771
+    },
+    {
+      "mark": "lockup-horizontal",
+      "colorway": "espresso",
+      "hex": "#654746",
+      "png": "/brand/kayaan-lockup-horizontal-espresso.png",
+      "webp": "/brand/kayaan-lockup-horizontal-espresso.webp",
+      "width": 1024,
+      "height": 192
+    },
+    {
+      "mark": "lockup-horizontal",
+      "colorway": "sand",
+      "hex": "#e5d2b8",
+      "png": "/brand/kayaan-lockup-horizontal-sand.png",
+      "webp": "/brand/kayaan-lockup-horizontal-sand.webp",
+      "width": 1024,
+      "height": 193
+    },
+    {
+      "mark": "lockup-horizontal",
+      "colorway": "taupe",
+      "hex": "#9e816d",
+      "png": "/brand/kayaan-lockup-horizontal-taupe.png",
+      "webp": "/brand/kayaan-lockup-horizontal-taupe.webp",
+      "width": 1024,
+      "height": 192
+    },
+    {
+      "mark": "lockup-stacked",
+      "colorway": "espresso",
+      "hex": "#654746",
+      "png": "/brand/kayaan-lockup-stacked-espresso.png",
+      "webp": "/brand/kayaan-lockup-stacked-espresso.webp",
+      "width": 1024,
+      "height": 595
+    },
+    {
+      "mark": "lockup-stacked",
+      "colorway": "rosewood",
+      "hex": "#865e5d",
+      "png": "/brand/kayaan-lockup-stacked-rosewood.png",
+      "webp": "/brand/kayaan-lockup-stacked-rosewood.webp",
+      "width": 1024,
+      "height": 595
+    },
+    {
+      "mark": "lockup-stacked",
+      "colorway": "sand",
+      "hex": "#e5d2b8",
+      "png": "/brand/kayaan-lockup-stacked-sand.png",
+      "webp": "/brand/kayaan-lockup-stacked-sand.webp",
+      "width": 1024,
+      "height": 595
+    },
+    {
+      "mark": "lockup-stacked",
+      "colorway": "taupe",
+      "hex": "#9e816d",
+      "png": "/brand/kayaan-lockup-stacked-taupe.png",
+      "webp": "/brand/kayaan-lockup-stacked-taupe.webp",
+      "width": 1024,
+      "height": 595
+    },
+    {
+      "mark": "tile-solid",
+      "colorway": "espresso",
+      "hex": "#654746",
+      "png": "/brand/kayaan-tile-solid-espresso.png",
+      "webp": "/brand/kayaan-tile-solid-espresso.webp",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "mark": "tile-solid",
+      "colorway": "rosewood",
+      "hex": "#865e5d",
+      "png": "/brand/kayaan-tile-solid-rosewood.png",
+      "webp": "/brand/kayaan-tile-solid-rosewood.webp",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "mark": "tile-solid",
+      "colorway": "sand",
+      "hex": "#e5d2b8",
+      "png": "/brand/kayaan-tile-solid-sand.png",
+      "webp": "/brand/kayaan-tile-solid-sand.webp",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "mark": "tile-solid",
+      "colorway": "taupe",
+      "hex": "#9e816d",
+      "png": "/brand/kayaan-tile-solid-taupe.png",
+      "webp": "/brand/kayaan-tile-solid-taupe.webp",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "mark": "wordmark",
+      "colorway": "espresso",
+      "hex": "#654746",
+      "png": "/brand/kayaan-wordmark-espresso.png",
+      "webp": "/brand/kayaan-wordmark-espresso.webp",
+      "width": 1024,
+      "height": 406
+    },
+    {
+      "mark": "wordmark",
+      "colorway": "sand",
+      "hex": "#e5d2b8",
+      "png": "/brand/kayaan-wordmark-sand.png",
+      "webp": "/brand/kayaan-wordmark-sand.webp",
+      "width": 1024,
+      "height": 406
+    },
+    {
+      "mark": "wordmark",
+      "colorway": "taupe",
+      "hex": "#9e816d",
+      "png": "/brand/kayaan-wordmark-taupe.png",
+      "webp": "/brand/kayaan-wordmark-taupe.webp",
+      "width": 1024,
+      "height": 406
+    }
+  ]
+}

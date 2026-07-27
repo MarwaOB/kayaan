@@ -46,5 +46,10 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 
+# brand asset masters — ~400 MB of camera originals and logo artboards.
+# Keep them on the brand drive; `npm run assets:prepare` turns them into the
+# web derivatives under /public, which ARE committed. See docs/DESIGN-SYSTEM.md §7.
+/images/
+
 # misc
 *.pem

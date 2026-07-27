@@ -65,38 +65,55 @@ export default async function ProductPage({ params }: { params: { slug: string }
       <Header categories={categories} />
 
       <main>
-        {/* 1. Breadcrumb */}
-        <Breadcrumb
-          categoryName={product.category.nameAr}
-          categorySlug={product.category.slug}
-          productName={product.name}
-        />
-
-        {/* 2. Category bar, swipeable */}
-        <CategoryBar
-          categories={categories.map((c: { slug: string; nameAr: string }) => ({ slug: c.slug, nameAr: c.nameAr }))}
-          activeSlug={product.category.slug}
-        />
-
-        <div className="grid gap-6 px-4 sm:grid-cols-2 sm:px-6">
-          {/* 3-4. Product image(s) + shop-the-look hotspots */}
-          <ProductGallery images={product.images} hotspotsByImage={hotspotsByImage} />
-
-          {/* 5-9. Name+price, description+size guide, delivery time, color/size, add to cart */}
-          <PurchasePanel
-            productId={product.id}
-            productName={product.name}
-            slug={product.slug}
-            salePrice={product.salePrice}
-            discountPrice={product.discountPrice}
-            shortDescription={product.description.slice(0, 140)}
-            variants={product.variants}
-            imageUrl={product.images[0]?.url}
-          />
+        {/* 1-2. Breadcrumb + swipeable category bar, together in one thin band
+            so the gallery starts as high up the page as possible. */}
+        <div className="border-b border-line">
+          <div className="container-k-wide py-3">
+            <Breadcrumb
+              categoryName={product.category.nameAr}
+              categorySlug={product.category.slug}
+              productName={product.name}
+            />
+          </div>
+        </div>
+        <div className="border-b border-line">
+          <div className="container-k-wide">
+            <CategoryBar
+              categories={categories.map((c: { slug: string; nameAr: string }) => ({ slug: c.slug, nameAr: c.nameAr }))}
+              activeSlug={product.category.slug}
+            />
+          </div>
         </div>
 
-        {/* 10. Description / Care instructions */}
-        <ProductInfoTabs description={product.description} careInstructions={product.careInstructions} />
+        {/* Kith reference, mirrored for RTL: gallery takes the leading (right)
+            column, details sit alongside on the left and stay pinned while the
+            imagery scrolls past. Stacks in spec order on mobile. */}
+        <div className="container-k-wide pb-16 pt-8 md:pt-10">
+          <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_26rem] lg:gap-14">
+            {/* 3-4. Product image(s) + shop-the-look hotspots */}
+            <ProductGallery images={product.images} hotspotsByImage={hotspotsByImage} />
+
+            <div className="lg:sticky lg:top-28 lg:self-start">
+              {/* 5-9. Name+price, description+size guide, delivery, colour/size, add to cart */}
+              <PurchasePanel
+                productId={product.id}
+                productName={product.name}
+                slug={product.slug}
+                salePrice={product.salePrice}
+                discountPrice={product.discountPrice}
+                shortDescription={product.description.slice(0, 140)}
+                variants={product.variants}
+                imageUrl={product.images[0]?.url}
+              />
+
+              {/* 10. Description / care / shipping accordions */}
+              <ProductInfoTabs
+                description={product.description}
+                careInstructions={product.careInstructions}
+              />
+            </div>
+          </div>
+        </div>
 
         {/* 11. Contact form — separate section */}
         <ProductContactForm productName={product.name} />

@@ -1,6 +1,15 @@
-const WHATSAPP_NUMBER = "213562009989"; // §1 — client-provided, no leading zero for wa.me links
+import { IconWhatsApp } from "@/components/ui/Icon";
 
-/** Fixed WhatsApp support bubble, bottom-right, as on the reference site (§2). */
+const WHATSAPP_NUMBER = "213562009989"; // spec §1 — no leading zero for wa.me links
+
+/**
+ * Floating WhatsApp support bubble (spec §2, brief §1.1 — "Based on Love"
+ * places the same affordance in the same corner).
+ *
+ * `end-5` rather than `right-5`, so in RTL it sits bottom-left as it should
+ * (DESIGN-SYSTEM.md §8). Real brand glyph instead of the 💬 emoji, which showed
+ * a different picture on every platform and none of them was WhatsApp.
+ */
 export function WhatsAppBubble() {
   return (
     <a
@@ -8,9 +17,9 @@ export function WhatsAppBubble() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="تواصل معنا عبر واتساب"
-      className="fixed bottom-5 end-5 z-30 grid h-14 w-14 place-items-center rounded-full bg-[#25D366] text-2xl text-white shadow-lg"
+      className="whatsapp-bubble fixed bottom-5 end-5 z-30 grid h-14 w-14 place-items-center rounded-pill bg-[#25D366] text-white shadow-2 transition-all duration-base ease-k hover:scale-105 hover:bg-[#1EBE5A]"
     >
-      💬
+      <IconWhatsApp className="h-7 w-7" />
     </a>
   );
 }

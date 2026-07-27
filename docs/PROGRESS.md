@@ -413,3 +413,83 @@ All three added to `AdminSidebar.tsx`. Everything else checked out fine —
 store-design, coupons, reviews, newsletter, blocked numbers, orders,
 products, categories all had complete admin coverage matching the backend
 already.*
+
+*Update (2026-07-27, listing pages): the five routes still on the
+pre-redesign idiom — `/categories/[slug]`, `/collections/[slug]`,
+`/top-selling`, `/favorites`, `/bundles/[slug]` — rebuilt on a shared listing
+system. Audit table in `docs/DESIGN-BRIEF.md` §4.1; component spec in
+`docs/DESIGN-SYSTEM.md` §6.7.
+
+| Item | File |
+|---|---|
+| Facet engine — filter/sort/count/band maths, pure, tested | `src/lib/listing.ts`, `tests/listing.test.ts` (16 tests) |
+| Editorial masthead | `src/components/listing/ListingHero.tsx` |
+| Toolbar + filter surfaces + grid + editorial breaks + empty states | `src/components/listing/ProductGrid.tsx` |
+| Sibling category strip | `src/components/listing/CategoryRail.tsx` |
+| Favourites client view (ID cache, skeleton, failure copy) | `src/components/listing/FavoritesView.tsx` |
+| Full chrome on `/favorites` | `src/app/favorites/layout.tsx` |
+| `--k-header-h`, published from the header's measured height | `src/app/globals.css`, `tailwind.config.js`, `src/components/home/Header.tsx` |
+| Editorial frame helpers across the server/client boundary | `src/lib/lookbook.ts` |
+
+Two adjacent fixes: `sizeLabel()` in `src/lib/format.ts` renders the
+catalogue's `"One Size"` as `مقاس واحد` on the PDP size chips and in the size
+facet (R1); `CategoryRail` avoids the `aria-label="الأقسام"` already used by
+two navs in the header.
+
+**Known, pre-existing**: `.bleed-k` uses `width: 100vw`, which is wider than the
+document when a classic scrollbar is present — every full-bleed section (hero,
+video band, and now the editorial breaks) overflows by the scrollbar width on
+desktop. Fixed in a later pass, below.*
+
+*Update (2026-07-27, testimonials §6.10): the section was already on tokens and
+pull-quote typography, but had three structural problems — it only worked at
+exactly two entries (two-column grid, empty cell on an odd count, a wall of
+display headlines at five), it carried no aggregate, and one long testimonial
+set at `h2` blew out the row height.
+
+Rebuilt as the same snap rail the drops and collections rows use, with an
+average strip above it. The average comes from `getPublicReviewSummary()` —
+real approved reviews on visible products (§7.14) — not from averaging the
+admin-authored `testimonials` site setting, and it is suppressed below five
+reviews. Stars floor rather than round, so a 4.8 average never paints five.
+Quote length picks the treatment: `h2` under 90 characters, `h3` under 180,
+body-lg prose above that, clamped at six lines. Copy helpers `reviewCount()`
+and `formatRating()` added to `src/lib/format.ts`.*
+
+*Update (2026-07-27, why-choose-us §6.11): the section was correct on tokens and
+wrong on substance — it was the only block on the home page with no photograph,
+sat between the testimonials and the Instagram band, and carried three headline
+claims ("تصاميم أصيلة / جودة عالية / تجربة مختلفة") that any shop could make.
+Rebuilt as a photograph beside the client's own sentence from spec §1 — "لا نصنع
+ملابس فقط، بل نصنع تجربة" — with the three points as a hairline-divided list
+under it and a route on to `/pages/about`, which the section previously lacked
+entirely. Every line is §1 verbatim or close to it. Service reasons (COD, 58
+wilayas) are deliberately absent: the running bar carries those directly above
+(§6.5). Titles dropped from `h2` to `h3` — three `h2`s under one `display-2`
+flattened the hierarchy — and the three-column layout went away because at 768px
+it gave each column a ~230px measure, far too tight for Arabic.
+
+Also corrected a provenance claim I had introduced on the category page
+("مصنوعة ومطبوعة في الجزائر"). The spec records where the brand is from, not
+where the garments are made.*
+
+*Update (2026-07-27, full-bleed overflow): `.bleed-k` sizes at `100vw` — the
+viewport *including* the classic scrollbar — while the document is viewport
+minus scrollbar, so every full-bleed section was ~15px wider than the page and
+desktop had a real horizontal scrollbar on every route. Present since the hero
+shipped.
+
+Auditing the four usages showed three did not need the utility at all:
+`HeroCarousel` and both bands in `VideoAndRunningBar` sit directly under
+`<main>`, which carries no container, so they were already document-width and
+`bleed-k` was only forcing the overflow. Those three are now plain full-width
+elements. Only the editorial break in `ProductGrid` genuinely escapes a
+container, and `html { overflow-x: clip }` in `globals.css` absorbs its
+remainder.
+
+`clip`, not `hidden`: `hidden` establishes a scroll container, which would make
+every `position: sticky` on the site — header, listing toolbar, cart summary, PDP
+details column, info-page rail — stick to that container instead of the viewport.
+`overflow: clip` establishes no scroll container. No `@supports` guard is needed;
+a browser that doesn't know the value drops the declaration and gets the previous
+behaviour. Rule written into `docs/DESIGN-SYSTEM.md` §4.4.*

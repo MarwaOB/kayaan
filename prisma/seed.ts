@@ -43,8 +43,8 @@ async function main() {
       categoryId: categories["hoodies"],
       images: {
         create: [
-          { url: "/images/seed/hoodie.svg", position: 0, isLifestyle: false },
-          { url: "/images/seed/hero-1.svg", position: 1, isLifestyle: true },
+          { url: "/images/products/winter/dz/dz-03-800.webp", position: 0, isLifestyle: false },
+          { url: "/images/products/winter/dz/dz-04-800.webp", position: 1, isLifestyle: true },
         ],
       },
       variants: {
@@ -76,7 +76,7 @@ async function main() {
       metaDescription: "تيشيرت خط عربي أصيل من كيان.",
       categoryId: categories["t-shirts"],
       images: {
-        create: [{ url: "/images/seed/tshirt.svg", position: 0, isLifestyle: false }],
+        create: [{ url: "/images/products/summer/hourria/hourria-02-1600.webp", position: 0, isLifestyle: false }],
       },
       variants: {
         create: [
@@ -100,7 +100,7 @@ async function main() {
       sponsorSpend: 40,
       profit: 910,
       categoryId: categories["totebags"],
-      images: { create: [{ url: "/images/seed/totebag.svg", position: 0 }] },
+      images: { create: [{ url: "/images/products/summer/dz/dz-03-1600.webp", position: 0 }] },
       variants: { create: [{ color: "بيج", size: "One Size", sku: "TB-HK-BEG-OS", stock: 30 }] },
     },
   });
@@ -173,7 +173,10 @@ async function main() {
       email: "amina@example.com",
       shippingAddress: "الحي الصناعي، شارع 12",
       wilaya: "الجزائر",
-      deliveryMethod: "HOME_DELIVERY",
+      commune: "باب الزوار",
+      // Schema documents this as "HOME" | "OFFICE" (mirrors Yalidine's
+      // is_stopdesk). The seed had drifted to "HOME_DELIVERY".
+      deliveryMethod: "HOME",
       deliveryFee: 500,
       status: "AWAITING_PAYMENT",
       totalAmount: 4300,
@@ -239,8 +242,8 @@ async function main() {
     create: {
       key: "hero_slides",
       value: JSON.stringify([
-        { imageUrl: "/images/seed/hero-1.svg", headline: "كيان… أكثر من ستايل", ctaLabel: "تسوق الآن", ctaHref: "/collections/drop-ramadan-2026" },
-        { imageUrl: "/images/seed/hero-2.svg", headline: "إصدارات رمضان الجديدة", ctaLabel: "استكشف التشكيلة", ctaHref: "/collections/drop-ramadan-2026" },
+        { imageUrl: "/images/products/winter/gaza/gaza-04-1600.webp", headline: "كيان… أكثر من ستايل", ctaLabel: "تسوق الآن", ctaHref: "/collections/drop-ramadan-2026" },
+        { imageUrl: "/images/products/winter/sinwar/sinwar-04-800.webp", headline: "إصدارات رمضان الجديدة", ctaLabel: "استكشف التشكيلة", ctaHref: "/collections/drop-ramadan-2026" },
       ]),
     },
   });

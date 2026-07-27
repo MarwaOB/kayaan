@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Logo } from "@/components/brand/Logo";
+import { IconArrowEnd, IconInstagram, IconMail, IconWhatsApp } from "@/components/ui/Icon";
+import { CONTACT, INFO_PAGES } from "@/data/site-pages";
 
 type Category = { slug: string; nameAr: string };
 
-/** Newsletter signup (§2 "Newsletter management" — this is the storefront write-side). */
+/** Newsletter signup — the storefront write-side of admin "Newsletter management" (spec §2). */
 function NewsletterSignup() {
   const [contact, setContact] = useState("");
   const [website, setWebsite] = useState(""); // honeypot, left empty by real users
@@ -37,91 +40,180 @@ function NewsletterSignup() {
   }
 
   if (status === "done") {
-    return <p className="mb-6 text-center text-sm font-bold text-green-700">تم الاشتراك، شكراً لك! 🎉</p>;
+    return (
+      <p className="text-body font-semibold text-brand-200">
+        تم الاشتراك، شكراً لك{" "}
+        <span className="emoji" role="img" aria-label="قلب بني">
+          🤎
+        </span>
+      </p>
+    );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mb-6 text-center">
-      <p className="mb-2 font-bold">اشترك في نشرتنا البريدية</p>
-      <p className="mb-3 text-xs text-neutral-500">كن أول من يعلم بالتخفيضات والإصدارات الجديدة</p>
-      <div className="mx-auto flex max-w-sm gap-2">
+    <form onSubmit={handleSubmit} noValidate>
+      <label htmlFor="newsletter-contact" className="block text-body font-semibold text-brand-50">
+        اشترك في نشرتنا
+      </label>
+      <p className="mt-1.5 text-body-sm text-brand-200/70">
+        كن أول من يعلم بالإصدارات الجديدة والتخفيضات.
+      </p>
+
+      <div className="mt-4 flex gap-2">
         <input
+          id="newsletter-contact"
           required
           dir="ltr"
-          type="text"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
           value={contact}
           onChange={(e) => setContact(e.target.value)}
           placeholder="example@mail.com"
-          className="flex-1 rounded-full border border-neutral-200 px-4 py-2 text-sm"
+          aria-invalid={status === "error"}
+          aria-describedby={error ? "newsletter-error" : undefined}
+          // 16px minimum — anything smaller makes iOS zoom on focus (§6.7).
+          className="h-11 min-w-0 flex-1 rounded-sm border border-brand-200/25 bg-brand-800/60 px-4 text-[16px] text-brand-50 placeholder:text-brand-200/40 focus-visible:outline-brand-200"
         />
-        {/* Honeypot — hidden from real users via CSS, not `type="hidden"`, since some bots skip those */}
+        {/* Honeypot — hidden with CSS rather than type="hidden", which some bots skip. */}
         <input
           type="text"
           value={website}
           onChange={(e) => setWebsite(e.target.value)}
           tabIndex={-1}
           autoComplete="off"
-          className="absolute h-0 w-0 opacity-0"
           aria-hidden="true"
+          className="pointer-events-none absolute h-0 w-0 opacity-0"
         />
         <button
           type="submit"
           disabled={status === "loading"}
-          className="rounded-full bg-kayaan-brown px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-sm bg-brand-200 text-brand-900 transition duration-fast ease-k hover:bg-white disabled:opacity-60"
+          aria-label="اشترك في النشرة"
         >
-          {status === "loading" ? "..." : "اشترك"}
+          <IconArrowEnd className="h-5 w-5" />
         </button>
       </div>
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+
+      {error && (
+        <p id="newsletter-error" className="mt-2 text-body-sm text-danger">
+          {error}
+        </p>
+      )}
     </form>
   );
 }
 
-/** Footer (§9): categories grouped 4-per-row, brand blurb, main pages, social + copyright. */
+/**
+ * Footer (spec §9) — categories 4 per row, brand blurb + logo, main pages,
+ * socials, "© 2026 By Kayaan".
+ *
+ * Espresso field rather than white: it closes the page and lets the sand logo
+ * appear in its on-dark colourway, which is the pairing the brand assets were
+ * actually drawn for.
+ */
 export function Footer({ categories }: { categories: Category[] }) {
   return (
-    <footer className="mt-8 border-t border-neutral-200 bg-white px-4 py-10 text-sm">
-      <div className="mx-auto max-w-6xl">
-        <NewsletterSignup />
+    <footer className="bg-brand-900 text-brand-100">
+      <div className="container-k-wide py-16 md:py-20">
+        <div className="grid gap-12 lg:grid-cols-[1.1fr_1fr]">
+          <div>
+            <Logo mark="lockup-horizontal" colorway="sand" width={190} />
+            <p className="mt-5 max-w-[42ch] text-body text-brand-200/75">
+              كيان… أكثر من ستايل. ملابس عصرية بطابع عربي وإسلامي، مصنوعة في الجزائر.
+            </p>
 
-        <div className="mb-8 grid grid-cols-4 gap-3">
-          {categories.map((c) => (
-            <Link
-              key={c.slug}
-              href={`/categories/${c.slug}`}
-              className="rounded-lg border border-neutral-200 py-3 text-center font-medium"
-            >
-              {c.nameAr}
-            </Link>
-          ))}
+            <div className="mt-8 flex items-center gap-2">
+              <SocialLink href={CONTACT.instagram} label="إنستغرام">
+                <IconInstagram className="h-[18px] w-[18px]" />
+              </SocialLink>
+              <SocialLink href={CONTACT.whatsappHref} label="واتساب">
+                <IconWhatsApp className="h-[18px] w-[18px]" />
+              </SocialLink>
+              <SocialLink href={`mailto:${CONTACT.email}`} label="البريد الإلكتروني">
+                <IconMail className="h-[18px] w-[18px]" />
+              </SocialLink>
+            </div>
+          </div>
+
+          <div className="lg:justify-self-end lg:w-full lg:max-w-sm">
+            <NewsletterSignup />
+          </div>
         </div>
 
-        <div className="mb-6 text-center">
-          <p className="mb-1 text-lg font-bold">كيان</p>
-          <p className="mx-auto max-w-md text-neutral-500">كيان… أكثر من ستايل. ملابس عصرية بطابع عربي وإسلامي.</p>
-        </div>
+        {/* §9 — categories as boxes, 4 per row. */}
+        {categories.length > 0 && (
+          <nav aria-label="الأقسام" className="mt-14 border-t border-brand-200/15 pt-10">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {categories.map((c) => (
+                <Link
+                  key={c.slug}
+                  href={`/categories/${c.slug}`}
+                  className="rounded-sm border border-brand-200/15 px-4 py-4 text-center text-body-sm font-medium text-brand-50 transition duration-fast ease-k hover:border-brand-200/40 hover:bg-brand-800/50"
+                >
+                  {c.nameAr}
+                </Link>
+              ))}
+            </div>
+          </nav>
+        )}
 
-        <div className="mb-6 flex flex-wrap justify-center gap-4 text-neutral-600">
-          <Link href="/pages/about">من نحن</Link>
-          <Link href="/pages/refund-policy">سياسة الاستبدال والاسترجاع</Link>
-          <Link href="/pages/privacy">سياسات الخصوصية</Link>
-          <Link href="/pages/terms">شروط الاستخدام</Link>
-          <Link href="/pages/shipping-policy">سياسة الطلب والشحن</Link>
-          <Link href="/pages/size-guide">دليل المقاسات</Link>
-        </div>
+        {/* Bottom bar. The policy links used to be a loose wrap of six items
+            with the copyright orphaned twelve units below it; grouping them
+            into one ruled bar gives the footer a foot instead of a trailing
+            edge, and the underline-on-hover makes them read as links at a
+            weight this low. */}
+        <div className="mt-12 border-t border-brand-200/15 pt-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <nav aria-label="روابط الموقع">
+              <ul className="flex flex-wrap items-center gap-x-5 gap-y-3">
+                {INFO_PAGES.map((p) => (
+                  <li key={p.slug}>
+                    <Link
+                      href={`/pages/${p.slug}`}
+                      className="text-body-sm text-brand-200/70 underline decoration-transparent underline-offset-4 transition-colors duration-fast ease-k hover:text-brand-50 hover:decoration-brand-200/60"
+                    >
+                      {p.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
 
-        <div className="mb-6 flex justify-center gap-4">
-          <a href="https://instagram.com/kayaaan.clothing" target="_blank" rel="noopener noreferrer">
-            Instagram
-          </a>
-          <a href="https://wa.me/213562009989" target="_blank" rel="noopener noreferrer">
-            WhatsApp
-          </a>
-          <a href="mailto:hello@kayaaanclothing.com">Email</a>
+            <p className="shrink-0 text-caption text-brand-200/50">
+              {/* Client-mandated string, spec §9 — the only Latin in the footer,
+                  so it is isolated or the bidi algorithm reorders it. */}
+              <span dir="ltr">© 2026 By Kayaan</span>
+              <span className="mx-2 text-brand-200/30" aria-hidden="true">
+                ·
+              </span>
+              جميع الحقوق محفوظة
+            </p>
+          </div>
         </div>
-
-        <p className="text-center text-xs text-neutral-400">© 2026 By Kayaan</p>
       </div>
     </footer>
+  );
+}
+
+function SocialLink({
+  href,
+  label,
+  children,
+}: {
+  href: string;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={label}
+      className="grid h-11 w-11 place-items-center rounded-pill border border-brand-200/20 text-brand-100 transition duration-fast ease-k hover:border-brand-200/50 hover:bg-brand-800/60 hover:text-white"
+    >
+      {children}
+    </a>
   );
 }

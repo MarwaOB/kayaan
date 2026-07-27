@@ -1,0 +1,34 @@
+# Local Postgres for development.
+#
+# The hosted Supabase instance is the source of truth for staging/production;
+# this exists so UI work doesn't stop when that project is paused, rate-limited,
+# or the network is flaky. Nothing here is used in production.
+#
+#   npm run db:up      start
+#   npm run db:setup   start + migrate + seed
+#   npm run db:down    stop (data survives)
+#   npm run db:reset   stop + delete the volume
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kayaan-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kayaan
+      POSTGRES_PASSWORD: kayaan_local_dev
+      POSTGRES_DB: kayaan
+    ports:
+      # 5433 on the host so it can't collide with a local Postgres install.
+      - "5433:5432"
+    volumes:
+      - kayaan-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Migrations must not run before the server accepts connections.
+      test: ["CMD-SHELL", "pg_isready -U kayaan -d kayaan"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  kayaan-pgdata:

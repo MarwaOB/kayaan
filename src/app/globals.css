@@ -2,14 +2,273 @@
 @tailwind components;
 @tailwind utilities;
 
-html,
-body {
-  background: theme("colors.kayaan.bg");
-  color: theme("colors.kayaan.ink");
-  font-family: Tahoma, Arial, sans-serif;
+/* =========================================================================
+   Design tokens — the machine-readable half of docs/DESIGN-SYSTEM.md.
+   Every value here is documented there. Change both together, never one.
+   ========================================================================= */
+@layer base {
+  :root {
+    /* --- Brand ramp (§2.1). 200/400/500/700 are sampled from the logo art. -- */
+    --k-brand-50: #f6f0ea;
+    --k-brand-100: #ece0d4;
+    --k-brand-200: #e5d2b8; /* logo — sand */
+    --k-brand-300: #c9a876; /* was: kayaan.accent */
+    --k-brand-400: #9e816d; /* logo — taupe */
+    --k-brand-500: #865e5d; /* logo — rosewood */
+    --k-brand-600: #6b4a35; /* was: kayaan.brown */
+    --k-brand-700: #654746; /* logo — espresso · PRIMARY */
+    --k-brand-800: #4a3224; /* was: kayaan.brownDark */
+    --k-brand-900: #2e1f16;
+
+    /* --- Surface & ink (§2.2) ------------------------------------------- */
+    --k-bg: #faf7f2;
+    --k-surface: #ffffff;
+    --k-surface-sunken: #f2ece3;
+    --k-line: #e6ddd1;
+    --k-line-strong: #d6c9b8;
+    --k-ink: #1c1917;
+    --k-ink-muted: #6b625a;
+    --k-ink-subtle: #9a8f85;
+    --k-blush: #f7e6e6; /* running bar only — was: kayaan.pink */
+
+    /* --- Semantic (§2.3) ------------------------------------------------ */
+    --k-success: #3f6f4f;
+    --k-danger: #9b2c2c;
+    --k-warning: #b4761f;
+    --k-focus: #654746;
+
+    /* --- Radius (§4.2) -------------------------------------------------- */
+    --k-radius-xs: 6px;
+    --k-radius-sm: 10px;
+    --k-radius-md: 14px;
+    --k-radius-lg: 20px;
+    --k-radius-pill: 999px;
+
+    /* --- Elevation (§4.3). Default is none — depth comes from --k-line. -- */
+    --k-shadow-1: 0 1px 2px rgb(28 25 23 / 0.06);
+    --k-shadow-2: 0 8px 24px -12px rgb(28 25 23 / 0.18);
+
+    /* --- Layout (§4.4) -------------------------------------------------- */
+    --k-container: 1200px;
+    --k-container-wide: 1440px;
+
+    /* Height of the sticky header, so anything that pins beneath it (the
+       listing toolbar, the info-page rail) lands flush instead of leaving a
+       sliver of scrolling content showing through. These are the measured
+       defaults; Header.tsx overwrites them with its real height once mounted,
+       which keeps the two in step if the header ever changes. */
+    --k-header-h: 4.5rem;
+
+    /* --- Motion (§5) ---------------------------------------------------- */
+    --k-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --k-dur-fast: 120ms;
+    --k-dur-base: 220ms;
+    --k-dur-slow: 420ms;
+
+    /* --- Type (§3.1). Families are injected by next/font in layout.tsx. -- */
+    --k-font-sans: var(--font-plex-arabic), Tahoma, Arial, sans-serif;
+    --k-font-display: var(--font-almarai), var(--font-plex-arabic), Tahoma, sans-serif;
+    --k-font-emoji: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  }
+
+  /* The desktop header carries a second row — the category rail (§6.2). */
+  @media (min-width: 768px) {
+    :root {
+      --k-header-h: 7.75rem;
+    }
+  }
+
+  html,
+  body {
+    background: var(--k-bg);
+    color: var(--k-ink);
+    font-family: var(--k-font-sans);
+    /* Arabic needs a looser default leading than a Latin-first stack (§3.2). */
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /*
+   * `.bleed-k` sizes at `100vw`, which is the viewport *including* the classic
+   * scrollbar, while the document is viewport − scrollbar. Every full-bleed
+   * element is therefore a scrollbar's width wider than the page, which is a
+   * real horizontal scrollbar on desktop. Clip the difference.
+   *
+   * `clip`, not `hidden`, and the distinction is the entire point: `hidden`
+   * establishes a scroll container, which makes every `position: sticky`
+   * descendant stick to *that* container rather than the viewport — the header,
+   * the listing toolbar, the cart summary, the PDP details column and the
+   * info-page rail would all break at once, subtly enough to ship unnoticed.
+   * `overflow: clip` establishes no scroll container, which is why it exists.
+   *
+   * The root's overflow propagates to the viewport, so the used result is
+   * `overflow-x: clip` with `overflow-y: auto` — vertical scrolling untouched.
+   *
+   * No `@supports` guard: a browser that doesn't know `clip` drops the
+   * declaration and gets the previous behaviour rather than a broken page.
+   */
+  html {
+    overflow-x: clip;
+  }
+
+  /* Arabic diacritics and dots degrade below 15px (§3.2). */
+  body {
+    font-size: 0.9375rem;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--k-font-display);
+    /* Never letter-space Arabic — it breaks the cursive joins (§3.4). */
+    letter-spacing: normal;
+    text-wrap: balance;
+  }
+
+  /* One focus treatment everywhere (§9). */
+  :focus-visible {
+    outline: 2px solid var(--k-focus);
+    outline-offset: 2px;
+  }
+
+  /* Prices, totals, quantities align in columns (§3.1). */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
-/* Running bar (§6.5) — evenly spaced items; can be a static row or scroll. */
+@layer components {
+  .container-k {
+    margin-inline: auto;
+    max-width: var(--k-container);
+    padding-inline: 1rem;
+  }
+
+  .container-k-wide {
+    margin-inline: auto;
+    max-width: var(--k-container-wide);
+    padding-inline: 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .container-k,
+    .container-k-wide {
+      padding-inline: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .container-k,
+    .container-k-wide {
+      padding-inline: 2rem;
+    }
+  }
+
+  /* Section rhythm (§4.1) — 64 / 96 / 128. */
+  .section-k {
+    padding-block: 4rem;
+  }
+
+  @media (min-width: 768px) {
+    .section-k {
+      padding-block: 6rem;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .section-k {
+      padding-block: 8rem;
+    }
+  }
+
+  /* Text over photography always needs this — never trust the image (§2.4). */
+  .scrim-k {
+    background: linear-gradient(to top, rgb(46 31 22 / 0.78), transparent 60%);
+  }
+
+  /* The PDP's sticky mobile buy bar occupies the same corner as the floating
+     WhatsApp bubble. PurchasePanel flags <body data-buybar="1"> while the bar
+     is up; lift the bubble clear of it. Desktop never shows the bar. */
+  body[data-buybar="1"] .whatsapp-bubble {
+    bottom: 5.75rem;
+  }
+
+  @media (min-width: 1024px) {
+    body[data-buybar="1"] .whatsapp-bubble {
+      bottom: 1.25rem;
+    }
+  }
+
+  /* Scroll reveal (components/ui/Reveal.tsx).
+     Scoped to `.js`, which the root layout adds before first paint — without
+     JavaScript every `.reveal` stays at its natural, visible state rather than
+     leaving the page blank. */
+  .js .reveal {
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+      opacity var(--k-dur-slow) var(--k-ease),
+      transform var(--k-dur-slow) var(--k-ease);
+    will-change: opacity, transform;
+  }
+
+  .js .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+    will-change: auto;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .js .reveal {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+
+  /* Emoji are content, not controls (§3.5). */
+  .emoji {
+    font-family: var(--k-font-emoji);
+    font-style: normal;
+    line-height: 1;
+  }
+
+  /* Save-deterrent for product imagery (brief R3). Cosmetic by design —
+     it does not and cannot prevent screenshots. */
+  .no-save {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+    pointer-events: auto;
+  }
+
+  .no-save img {
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+}
+
+@layer utilities {
+  /* Full-bleed: escape a centred container without a wrapper (§4.4).
+     Margin-only — a `transform` here would become the containing block for any
+     `position: fixed` descendant. Direction-agnostic.
+
+     **Only for an element inside a container.** If its parent is already
+     document-width — anything sitting directly in `<main>`, for instance —
+     it needs no utility at all, and adding this one forces `100vw` and puts
+     the element a scrollbar's width past the edge of the page. The `html`
+     rule in @layer base clips that overflow, but relying on the clip to hide
+     a `bleed-k` that was never needed is treating the symptom. */
+  .bleed-k {
+    width: 100vw;
+    margin-inline: calc(50% - 50vw);
+  }
+}
+
+/* Running bar (§6.3). Translates by -50% because the track is duplicated;
+   the duplicate is aria-hidden so it is announced once. */
 @keyframes marquee {
   from {
     transform: translateX(0%);
@@ -18,6 +277,23 @@ body {
     transform: translateX(-50%);
   }
 }
+
 .animate-marquee {
   animation: marquee 25s linear infinite;
+}
+
+/* §5 — reduced motion is enforced globally, not per component. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
