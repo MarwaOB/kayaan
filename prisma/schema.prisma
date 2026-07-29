@@ -188,13 +188,13 @@ model Order {
   email            String?
   shippingAddress  String
   wilaya           String
-  commune          String // Yalidine prices by commune, not just wilaya (§13)
-  requiresManualDeliveryQuote Boolean @default(false) // home delivery pricing varies by wilaya (§1)
-  deliveryMethod   String        // "HOME" | "OFFICE" — matches Yalidine's is_stopdesk (false/true)
+  commune          String // free-text commune entered by the customer
+  requiresManualDeliveryQuote Boolean @default(false)
+  deliveryMethod   String        // "HOME" | "OFFICE"
   deliveryFee      Float         @default(0)
   status           String        @default("AWAITING_PAYMENT")
 
-  yalidineTracking String? // set once the parcel is created (order confirmed -> Yalidine, §13)
+  yalidineTracking String? // legacy field — kept for historical orders
   yalidineLabelUrl String?
 
   couponId         String?

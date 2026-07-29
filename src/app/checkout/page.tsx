@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart, useStoreHydration } from "@/lib/store";
+import { getDeliveryFee } from "@/lib/deliveryPricing";
 import { formatDZD, toArabicIndex } from "@/lib/format";
 import { Combobox, type ComboOption } from "@/components/ui/Combobox";
 import { ProtectedImage } from "@/components/ui/ProtectedImage";
-import { IconArrowEnd, IconTruck, IconWallet } from "@/components/ui/Icon";
+import { IconArrowEnd, IconWallet } from "@/components/ui/Icon";
 
 type Step = "form" | "done";
 
@@ -18,16 +19,13 @@ const SAVED_DETAILS_KEY = "kayaan-checkout-details";
  * decrement happens (§14.2, §14.6) — nothing here is trusted. There is no OTP:
  * the order lands as AWAITING_PAYMENT and an admin calls to confirm (§2).
  *
- * Wilaya/commune come live from Yalidine through our own proxy, so the IDs sent
- * back always match what Yalidine expects, and the delivery fee is fetched as
- * soon as a wilaya is chosen.
- *
  * Design notes:
  *
  * - **Details persist per device** (brief R4). Returning customers find the form
  *   already filled, with a visible note saying so and a way to clear it —
  *   silently remembering someone's address and phone number is not a feature.
- * - **Searchable wilaya/commune** instead of a 58-row native select (Combobox).
+ * - **Searchable wilaya** from a static 57-entry list (Combobox); commune is a
+ *   free-text input since we no longer pull commune lists from an external API.
  * - **Delivery choice is two rich cards** with the real fee on each, so the
  *   price difference is visible at the moment of choosing rather than after.
  * - **The summary is sticky on desktop** and collapsible on mobile: the total is
@@ -43,10 +41,6 @@ export default function CheckoutPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [wilayas, setWilayas] = useState<ComboOption[]>([]);
-  const [communes, setCommunes] = useState<ComboOption[]>([]);
-  const [fee, setFee] = useState<{ homeFee: number; officeFee: number; etaLabel: string } | null>(null);
-  const [feeError, setFeeError] = useState<string | null>(null);
-  const [loadingFee, setLoadingFee] = useState(false);
   const [restored, setRestored] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
 
@@ -57,7 +51,6 @@ export default function CheckoutPage() {
     shippingAddress: "",
     wilayaId: 0,
     wilaya: "",
-    communeId: 0,
     commune: "",
     deliveryMethod: "OFFICE" as "HOME" | "OFFICE",
     couponCode: "",
@@ -90,7 +83,6 @@ export default function CheckoutPage() {
       shippingAddress: "",
       wilayaId: 0,
       wilaya: "",
-      communeId: 0,
       commune: "",
       deliveryMethod: "OFFICE",
       couponCode: "",
@@ -107,37 +99,17 @@ export default function CheckoutPage() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (!form.wilayaId) {
-      setCommunes([]);
-      setFee(null);
-      return;
-    }
-    setFeeError(null);
-
-    fetch(`/api/delivery/communes?wilayaId=${form.wilayaId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.communes) setCommunes(data.communes);
-      })
-      .catch(() => {});
-
-    setLoadingFee(true);
-    fetch(`/api/delivery/quote?wilayaId=${form.wilayaId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.homeFee !== undefined) setFee(data);
-        else {
-          setFee(null);
-          setFeeError("تعذر جلب سعر التوصيل تلقائياً — سيتم تأكيده هاتفياً.");
-        }
-      })
-      .catch(() => {
-        setFee(null);
-        setFeeError("تعذر جلب سعر التوصيل تلقائياً — سيتم تأكيده هاتفياً.");
-      })
-      .finally(() => setLoadingFee(false));
+  // Look up fees locally from the static table — instant on every wilaya change,
+  // with no race between overlapping quote requests.
+  const fee = useMemo(() => {
+    if (!form.wilayaId) return null;
+    const entry = getDeliveryFee(form.wilayaId);
+    if (!entry) return null;
+    return { homeFee: entry.homeFee, officeFee: entry.deskFee };
   }, [form.wilayaId]);
+
+  const feeError =
+    form.wilayaId && !fee ? "تعذر تحديد سعر التوصيل — يرجى التواصل معنا." : null;
 
   const subtotal = totalPrice();
   const deliveryFee = fee ? (form.deliveryMethod === "HOME" ? fee.homeFee : fee.officeFee) : 0;
@@ -298,27 +270,27 @@ export default function CheckoutPage() {
                 value={form.wilayaId}
                 placeholder="اختر الولاية"
                 onChange={(w) => {
-                  update("wilayaId", w.id);
-                  update("wilaya", w.name);
-                  update("communeId", 0);
-                  update("commune", "");
+                  setForm((f) => ({
+                    ...f,
+                    wilayaId: w.id,
+                    wilaya: w.name,
+                    commune: "",
+                  }));
                 }}
               />
 
-              <Combobox
-                id="commune"
-                label="البلدية"
-                required
-                options={communes}
-                value={form.communeId}
-                placeholder="اختر البلدية"
-                disabled={!form.wilayaId}
-                disabledHint="اختر الولاية أولاً"
-                onChange={(c) => {
-                  update("communeId", c.id);
-                  update("commune", c.name);
-                }}
-              />
+              <div>
+                <label htmlFor="commune" className="block text-caption text-ink-muted">
+                  البلدية
+                </label>
+                <input
+                  id="commune"
+                  value={form.commune}
+                  onChange={(e) => update("commune", e.target.value)}
+                  placeholder="اكتب اسم البلدية"
+                  className={field}
+                />
+              </div>
 
               <div>
                 <label htmlFor="address" className="block text-caption text-ink-muted">
@@ -370,23 +342,13 @@ export default function CheckoutPage() {
                         {method === "OFFICE" ? "استلام من أقرب مكتب توصيل" : "توصيل إلى باب المنزل"}
                       </span>
                       <span className="tabular mt-3 block text-price text-brand-800">
-                        {methodFee !== null
-                          ? formatDZD(methodFee)
-                          : loadingFee
-                            ? "جاري الحساب…"
-                            : "يُحدد لاحقاً"}
+                        {methodFee !== null ? formatDZD(methodFee) : "يُحدد لاحقاً"}
                       </span>
                     </button>
                   );
                 })}
               </div>
 
-              {fee && (
-                <p className="flex items-center gap-2 text-body-sm text-ink-muted">
-                  <IconTruck className="h-[18px] w-[18px] shrink-0 text-brand-600" />
-                  مدة التوصيل المتوقعة: {fee.etaLabel}
-                </p>
-              )}
               {feeError && (
                 <p role="status" className="text-body-sm text-warning">
                   {feeError}

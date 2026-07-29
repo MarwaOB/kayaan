@@ -185,7 +185,7 @@ function HelpCard() {
           راسلنا على واتساب
         </a>
         <a
-          href={`mailto:${CONTACT.email}`}
+          href={`https://mail.google.com/mail/?view=cm&to=${CONTACT.email}`}
           className="inline-flex h-11 items-center justify-center gap-2 rounded-sm border border-line-strong px-6 text-body-sm font-semibold text-brand-700 transition-colors duration-fast ease-k hover:border-brand-400 hover:bg-surface-sunken"
         >
           <IconMail className="h-[18px] w-[18px]" />

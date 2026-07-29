@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { calculateFee } from "@/lib/yalidine";
+import { getDeliveryFee } from "@/lib/deliveryPricing";
 
 export type DeliveryMethod = "HOME" | "OFFICE";
 export const DeliveryMethod = {
@@ -16,10 +16,9 @@ export type CheckoutInput = {
   phone: string;
   email?: string;
   shippingAddress: string;
-  wilayaId: number; // Yalidine's numeric wilaya ID — required for the fee lookup
-  wilaya: string; // display name, as picked from the /api/delivery/wilayas list
-  communeId: number;
-  commune: string;
+  wilayaId: number; // index into the static WILAYAS list (1-based)
+  wilaya: string;   // display name, as picked from the wilaya selector
+  commune: string;  // free-text commune entered by the customer
   deliveryMethod: DeliveryMethod;
   couponCode?: string;
   items: CheckoutLineItem[];
@@ -31,12 +30,6 @@ export class CheckoutError extends Error {
     this.name = "CheckoutError";
   }
 }
-
-// Wilayas requiring a manual delivery quote per the client's own note (§1):
-// home-delivery pricing varies by wilaya and isn't shown on the site. This
-// is checked BEFORE calling Yalidine — if it's set, we skip the live lookup
-// entirely for that wilaya, same as before.
-const MANUAL_QUOTE_WILAYAS = new Set<string>([]); // populate with confirmed list before launch
 
 /**
  * Creates an order, decrementing stock and validating everything server-side
@@ -52,8 +45,8 @@ export async function createOrder(input: CheckoutInput) {
   if (input.items.length === 0) {
     throw new CheckoutError("Cart is empty.", "EMPTY_CART");
   }
-  if (!input.wilayaId || !input.wilaya || !input.communeId || !input.commune) {
-    throw new CheckoutError("Wilaya and commune are required.", "INVALID_LOCATION");
+  if (!input.wilayaId || !input.wilaya) {
+    throw new CheckoutError("Wilaya is required.", "INVALID_LOCATION");
   }
 
   const blocked = await prisma.blockedNumber.findUnique({ where: { phone: input.phone } });
@@ -61,22 +54,11 @@ export async function createOrder(input: CheckoutInput) {
     throw new CheckoutError("This phone number is blocked from ordering.", "PHONE_BLOCKED");
   }
 
-  // Resolved OUTSIDE the DB transaction — an external HTTP call to Yalidine
-  // has no business holding a transaction (and its row locks) open while it
-  // waits on a third-party server. If Yalidine is unreachable or the wilaya
-  // needs a manual quote, we don't block checkout — we just flag it for the
-  // admin to follow up with a fee by hand, same as the pre-integration
-  // behavior.
+  // Fee resolved from the static pricing table — no external HTTP call needed.
+  const feeEntry = getDeliveryFee(input.wilayaId);
   let deliveryFee = 0;
-  let requiresManualDeliveryQuote = MANUAL_QUOTE_WILAYAS.has(input.wilaya);
-  if (!requiresManualDeliveryQuote) {
-    try {
-      const fee = await calculateFee(input.wilayaId);
-      deliveryFee = input.deliveryMethod === "HOME" ? fee.homeFee : fee.officeFee;
-    } catch (err) {
-      console.error(`[checkout] Yalidine fee lookup failed for wilaya ${input.wilayaId}:`, err);
-      requiresManualDeliveryQuote = true;
-    }
+  if (feeEntry) {
+    deliveryFee = input.deliveryMethod === "HOME" ? feeEntry.homeFee : feeEntry.deskFee;
   }
 
   return prisma.$transaction(async (tx) => {
@@ -144,10 +126,10 @@ export async function createOrder(input: CheckoutInput) {
         email: input.email,
         shippingAddress: input.shippingAddress,
         wilaya: input.wilaya,
-        commune: input.commune,
+        commune: input.commune || "",
         deliveryMethod: input.deliveryMethod,
         deliveryFee,
-        requiresManualDeliveryQuote,
+        requiresManualDeliveryQuote: false,
         couponId,
         totalAmount: total + deliveryFee,
         items: { create: orderItemsData },

@@ -53,3 +53,6 @@ Thumbs.db
 
 # misc
 *.pem
+
+# Baileys WhatsApp session (whatsapp-service/) — live credentials, never commit
+/whatsapp-service/baileys-session/

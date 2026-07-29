@@ -130,7 +130,7 @@ export function Footer({ categories }: { categories: Category[] }) {
               <SocialLink href={CONTACT.whatsappHref} label="واتساب">
                 <IconWhatsApp className="h-[18px] w-[18px]" />
               </SocialLink>
-              <SocialLink href={`mailto:${CONTACT.email}`} label="البريد الإلكتروني">
+              <SocialLink href={`https://mail.google.com/mail/?view=cm&to=${CONTACT.email}`} label="البريد الإلكتروني">
                 <IconMail className="h-[18px] w-[18px]" />
               </SocialLink>
             </div>
