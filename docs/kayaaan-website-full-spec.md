@@ -489,7 +489,7 @@ information pages are built.
 | Hotspot "shop the look" §7.4 | ⚠️ | Built, but the linked article renders in a popover anchored to the dot, not in a right-side panel as §7.4 describes. Knowing deviation, logged in `DESIGN-BRIEF.md` §4. **Needs the client's yes or no.** |
 | Size guide §7.6 | ⚠️ | Modal is built; **the measurements in `src/data/size-guide.ts` are placeholders.** Real sizing has never been supplied. |
 | Trending 🔥 badge §5 / §12 | ⚠️ | Manual admin toggle only. "Top Selling" ranks by that flag, not by real sales volume — there is no sales-count field. §12 leaves this open; it needs a decision. |
-| Delivery ETA §7.7 | ⚠️ | `src/lib/deliveryEta.ts` returns the same placeholder string ("2-4 أيام عمل تقديري") for all 58 wilayas. Deliberately generic so it cannot be mistaken for research. **Needs real per-wilaya figures.** |
+| Delivery ETA §7.7 | ⚠️ | `src/lib/deliveryEta.ts` is now a single `DEFAULT_DELIVERY_ETA` constant ("2-5 أيام عمل") shown to every customer. Per-wilaya estimates are possible via the `WILAYAS` table in `deliveryPricing.ts` but none are set. **Needs real per-wilaya figures if §7.7 is meant to be specific.** |
 | Product contact form §7.11 | ⚠️ | Hands off to WhatsApp; inquiries are not stored, so they never appear in the dashboard. Fine if intended — confirm. |
 
 ### 16.2 Data model & security (§3, §14.1)
@@ -503,7 +503,7 @@ information pages are built.
 | Transactional checkout with stock decrement (§14.6) | ✅ | `src/lib/checkout.ts` |
 | Order status pipeline with transition validation (§14.7) | ✅ | `src/lib/orderStatus.ts` |
 | Admin auth | ✅ | scrypt hashing + HMAC-signed self-expiring cookie + `src/middleware.ts` server-side gate. Note this is **not** the NextAuth/Auth.js setup §13 proposed — a hand-rolled equivalent was built instead. Works; just know the spec and the build disagree here. |
-| **`.env.example` (§14.12 requires it)** | ❌ | **The file does not exist in the repository.** Only `.env.local.example` is tracked. Every WhatsApp, Yalidine, Cloudinary, and Supabase variable is currently undocumented for a new developer. §14.12 calls this out as a handoff requirement — and this project is being handed off. **Create it first.** |
+| **`.env.example` (§14.12 requires it)** | ❌ | **No environment-variable documentation exists in the repository at all.** `.env.example` was never created, and `.env.local.example` — the one tracked example file — was **deleted** in `121c038`. So every WhatsApp, delivery, Cloudinary, and Supabase variable is now undocumented, including the newly-added `WHATSAPP_PROVIDER`, `WHATSAPP_SERVICE_URL`, and `WHATSAPP_SERVICE_API_KEY`. §14.12 calls this out as a handoff requirement, and this project is being handed off. **This is the single highest-value hour of work available right now — do it first.** |
 
 ### 16.3 Admin dashboard (§2)
 
@@ -543,8 +543,8 @@ schema has no `Customer` model — orders are keyed by phone number only, so
 
 | Integration | Status |
 | --- | --- |
-| Yalidine delivery | ✅ code — wilaya/commune pickers, live fee lookup at checkout, automatic parcel creation on order confirmation. ⬜ **Never once exercised against the live API.** Blocked on `YALIDINE_API_ID` / `YALIDINE_API_TOKEN` and the origin-wilaya variables. The `/fees/` and `/parcels/` response field names in `src/lib/yalidine.ts` are best-effort — only request shapes are publicly documented — so expect a first-run failure that names the real keys. |
-| WhatsApp order confirmation | ✅ code (`src/lib/whatsapp.ts`, `orderConfirmationMessage.ts`). ⬜ Needs a Meta Business account and an approved **Utility**-category template. Never sent a real message. |
+| Delivery pricing | ✅ **Yalidine was removed on 2026-07-29** (`121c038`). `src/lib/yalidine.ts` and `yalidineParcel.ts` are now empty deprecated stubs; `src/lib/deliveryPricing.ts` holds a static per-wilaya `homeFee`/`deskFee` table maintained by hand from the carrier agreement. Checkout reads that table directly. **Consequences to know:** there is no automatic parcel creation any more (labels are made in the carrier's own tool), `commune` is now free text rather than a validated pick from an API, `Order.yalidineTracking`/`yalidineLabelUrl` survive as legacy columns, and the rate table is now a **manual maintenance burden — it goes stale silently the moment the carrier changes prices.** |
+| WhatsApp order confirmation | ⚠️ **Provider switched to Baileys on 2026-07-29** (`121c038`), because Meta's Cloud API requires a payment card the client does not have. `WHATSAPP_PROVIDER` (default `baileys`) selects between the new service and the retained `cloud_api` path in `src/lib/whatsapp.ts`. Three things the next developer must know: **(1) `whatsapp-service/` is not in the repository** — the commit adds it, but `git ls-tree` shows zero tracked files under that path, so a fresh clone does not get the service at all; **(2)** it is currently QR-linked to a *personal* WhatsApp number and must be re-linked to the client's business number before launch; **(3)** Baileys is an unofficial WhatsApp Web client — it is not a supported Meta integration and carries a real risk of the number being banned, which is a business risk the client should be told about explicitly, not just an engineering one. |
 | Google Merchant feed | ✅ endpoint. ⬜ Needs a Merchant Center account and `SITE_URL` set. Note Algeria is a *beta* target country in Google's own list, and DZD acceptance for an Algeria-targeted feed is unconfirmed. |
 | Meta Pixel + Conversion API | ❌ Not started. No `fbq`, no CAPI call, nowhere in `src/`. |
 | Sentry (§13 monitoring, §14.4) | ❌ Not started. No error monitoring of any kind — a silent checkout failure is currently invisible. |
@@ -561,7 +561,9 @@ recorded here so nobody "fixes" the code back to match the old text.
 | §13: **Cloudflare Images + R2** | **Cloudinary** (signed server-side uploads) | Chosen in setup. §13's objection — 25 credits/month on the free tier against a photo-heavy catalogue — also still applies. Watch the quota. |
 | §13: **Cloudflare Pages** hosting | Not yet deployed anywhere | §13's reasoning (Vercel's Hobby tier forbids commercial use) is unchanged and still correct. Do not deploy a live store to Vercel Hobby. |
 | §13: **NextAuth.js / Auth.js** | Hand-rolled scrypt + HMAC-signed cookie sessions | Equivalent in effect at single-owner scale; just not the named library. |
-| §1: delivery methods "التوصيل السريع / الاقتصادي" | `deliveryMethod` is `HOME` / `OFFICE` | Matches what Yalidine's `is_stopdesk` flag actually expresses and what customers are shown. |
+| §1: delivery methods "التوصيل السريع / الاقتصادي" | `deliveryMethod` is `HOME` / `OFFICE` | Originally chosen to match Yalidine's `is_stopdesk` flag. Yalidine is gone, but the split survives because it is what customers are actually shown and what the static rate table prices. |
+| §13: direct API integration with a delivery provider, called "the most operationally critical integration in the whole system" | No provider API at all. A hand-maintained rate table (`src/lib/deliveryPricing.ts`) and manual label creation in the carrier's own tool. | Decision of 2026-07-29. Reasonable at current volume, but §13's framing still stands: this is the piece most likely to hurt operationally, and it now fails *silently* (a stale price is invisible) rather than loudly (an API error). Worth a recurring reminder to re-check the rates. |
+| §13 / §2: WhatsApp via Meta's Cloud API | Baileys (unofficial WhatsApp Web) in a separate Node service, with the Cloud API path kept behind `WHATSAPP_PROVIDER=cloud_api` | Meta requires a payment card the client does not have. See §16.4 for the ban risk and the missing-from-git problem. |
 
 ### 16.6 Hardening not done (§14, Phase 5)
 
@@ -570,8 +572,13 @@ recorded here so nobody "fixes" the code back to match the old text.
   storefront has never been click-tested in a browser against a real
   database** — everything to date is type-checked and unit-tested only.
 - ISR/caching for category and collection listings (§14.9) not configured.
-- `MANUAL_QUOTE_WILAYAS` in `src/lib/checkout.ts` is still an empty set —
-  §1's "home delivery pricing varies, contact us" case never triggers.
+- §1's "home delivery pricing varies by wilaya, contact us for a quote" case
+  never triggers. `createOrder()` now writes `requiresManualDeliveryQuote:
+  false` unconditionally, and the column is dead. This may well be *correct*
+  now that every wilaya has a fixed `homeFee` in the rate table — but §1's
+  customer-facing notice still promises the old behaviour. **Either drop that
+  notice from the site copy or re-implement the case; right now the site says
+  one thing and does another.**
 - Phone-number masking in logs (§14.4) is not implemented.
 - Rate limiting on the public POST endpoints is in-memory
   (`src/lib/rateLimit.ts`) and resets on every deploy and every serverless
@@ -579,9 +586,12 @@ recorded here so nobody "fixes" the code back to match the old text.
 
 ### 16.7 Small, concrete cleanups found during this audit
 
-- `src/app/api/admin/orders/[id]/status/admin-order-status-route.ts` sits
-  beside the real `route.ts` in the same directory. It is a dead duplicate —
-  Next.js ignores it — but it will mislead the next reader. Delete it.
+- ~~The dead duplicate `admin-order-status-route.ts`~~ — already deleted in
+  `121c038`.
+- **`whatsapp-service/` is untracked.** `.gitignore` only excludes
+  `/whatsapp-service/baileys-session/` (correctly — those are live
+  credentials), but the service's own source was never added. A fresh clone
+  cannot run or redeploy WhatsApp. Commit it, minus the session directory.
 - The status-transition map is duplicated between `src/lib/orderStatus.ts` and
   a literal copy in `src/app/admin/orders/page.tsx`. The comment there
   acknowledges it. Export it from the lib instead.
