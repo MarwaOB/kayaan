@@ -126,9 +126,11 @@ The client currently runs on an existing platform (screenshots referenced an Eas
 > picking the project up should read them before writing code:**
 > **§15 — Admin Dashboard Front-End Brief** (the admin UI was explicitly left
 > out of the storefront redesign and now has to be brought up to the same
-> standard), and **§16 — Implementation Status Audit** (a verified,
-> file-by-file record of what in this spec is actually built, what is
-> half-built, and what has never been started).
+> standard), **§16 — Implementation Status Audit** (a verified, file-by-file
+> record of what in this spec is actually built, what is half-built, and what
+> has never been started), and **§17 — Media** (Cloudinary is the confirmed
+> source for all store-managed photography; §13's Cloudflare recommendation is
+> superseded).
 
 ### Confirmed admin dashboard features (minimum baseline, observed from current platform)
 - Orders management with status pipeline: كل الطلبات (All) · تم التأكيد (Confirmed) · تحت المراجعة (Under review) · في انتظار الدفع (Awaiting payment) · فشل الدفع (Payment failed) · قيد التجهيز للشحن (Preparing for shipping) · بانتظار الشحن (Awaiting shipment) · قيد التوصيل (Out for delivery) · تم التوصيل (Delivered)
@@ -319,7 +321,8 @@ Every layer below defaults to a genuinely free option. Where a "standard" indust
 - **Prisma** as the ORM — free, open-source — used to enforce that owner-only fields (cost, raw price, sponsor spend, profit) are structurally excluded from any customer-facing query (see §3), not just hidden by the frontend.
 
 ### Media (product images/video)
-- **Cloudflare Images + Cloudflare R2** (not Cloudinary) — Cloudinary's free tier is only 25 combined credits/month (~25GB total storage+bandwidth), which a photo-heavy fashion catalog will exceed quickly. Cloudflare's free egress and storage tiers are far more generous for this use case and integrate cleanly with Cloudflare Pages hosting.
+- ~~**Cloudflare Images + Cloudflare R2** (not Cloudinary)~~ — **superseded. The build uses Cloudinary. See §17.**
+- The original reasoning is kept here because it has not stopped being true: Cloudinary's free tier is only 25 combined credits/month (~25GB total storage+bandwidth), which a photo-heavy fashion catalogue will exceed. Cloudflare's free egress and storage tiers are more generous for this use case. **That quota risk is now something to monitor rather than something to design around** — the decision to use Cloudinary has been made and implemented (§17).
 
 ### Admin dashboard
 - Same Next.js codebase, a protected `/admin` route tree with simple email + password (or magic-link) authentication — no need for a separate paid auth service at single-owner scale. **NextAuth.js / Auth.js** is free and open-source and covers this.
@@ -558,7 +561,7 @@ recorded here so nobody "fixes" the code back to match the old text.
 | --- | --- | --- |
 | §2 / §13: WhatsApp **OTP** order confirmation, and an OTP-blocked-numbers admin list | No OTP at all. Orders sit at `AWAITING_PAYMENT` until an admin phones the customer and moves them to `CONFIRMED` or `PAYMENT_FAILED` by hand. A WhatsApp **recap** message is sent instead. | Client decision, 2026-07-16. The `Otp` / `OtpBlockedNumber` models, `src/lib/otp.ts`, and the checkout OTP step were all removed. §2's "OTP-blocked numbers" line is therefore obsolete. |
 | §13: **Neon** Postgres | **Supabase** Postgres, plus a local Docker Postgres for offline UI work | Chosen in setup. Note §13's stated objection to Supabase — free-tier projects auto-pause after 7 days idle — **still applies and has not been mitigated.** Either the project goes to a paid tier before launch or it must move. **This is a live launch risk.** |
-| §13: **Cloudflare Images + R2** | **Cloudinary** (signed server-side uploads) | Chosen in setup. §13's objection — 25 credits/month on the free tier against a photo-heavy catalogue — also still applies. Watch the quota. |
+| §13: **Cloudflare Images + R2** | **Cloudinary** (signed server-side uploads) | Settled and affirmed — **see §17, which is now the binding statement on media.** §13's objection (25 credits/month against a photo-heavy catalogue) still applies as a quota to watch, not as a reason to migrate. |
 | §13: **Cloudflare Pages** hosting | Not yet deployed anywhere | §13's reasoning (Vercel's Hobby tier forbids commercial use) is unchanged and still correct. Do not deploy a live store to Vercel Hobby. |
 | §13: **NextAuth.js / Auth.js** | Hand-rolled scrypt + HMAC-signed cookie sessions | Equivalent in effect at single-owner scale; just not the named library. |
 | §1: delivery methods "التوصيل السريع / الاقتصادي" | `deliveryMethod` is `HOME` / `OFFICE` | Originally chosen to match Yalidine's `is_stopdesk` flag. Yalidine is gone, but the split survives because it is what customers are actually shown and what the static rate table prices. |
@@ -592,6 +595,9 @@ recorded here so nobody "fixes" the code back to match the old text.
   `/whatsapp-service/baileys-session/` (correctly — those are live
   credentials), but the service's own source was never added. A fresh clone
   cannot run or redeploy WhatsApp. Commit it, minus the session directory.
+- `next.config.js` allows remote images from **any** https host and still
+  carries a comment saying Cloudflare will serve production media. Both wrong
+  — narrow it to `res.cloudinary.com`. See §17.3.
 - The status-transition map is duplicated between `src/lib/orderStatus.ts` and
   a literal copy in `src/app/admin/orders/page.tsx`. The comment there
   acknowledges it. Export it from the lib instead.
@@ -600,7 +606,79 @@ recorded here so nobody "fixes" the code back to match the old text.
 
 ---
 
+## 17. Media — Cloudinary Is The Source (confirmed 2026-07-31)
+
+**Affirmed and binding: all store-managed photography and video is stored in and
+served from Cloudinary.** §13's earlier Cloudflare Images + R2 recommendation is
+superseded and should not be re-litigated or half-migrated.
+
+### 17.1 The rule
+
+Anything the store owner uploads through the dashboard — product photographs,
+collection and bundle cover images, hero slides, the swappable homepage video —
+goes to Cloudinary and is read back from the Cloudinary URL. Never from the
+local filesystem, never from `/public`, never a hand-written path.
+
+The path is already built and works end to end:
+
+1. Admin picks a file in the dashboard.
+2. `POST /api/admin/upload` (`src/app/api/admin/upload/route.ts`) signs the
+   request **server-side** with `CLOUDINARY_API_SECRET` and forwards it to
+   Cloudinary's `auto/upload` endpoint. The secret never reaches the browser.
+   Images and video both accepted, 100MB ceiling.
+3. Cloudinary's `secure_url` is what gets returned, and that is what is stored
+   — in `ProductImage.url`, in `Collection.coverImage`, in `Bundle.coverImage`,
+   and in the `SiteSetting` blobs behind the hero and video.
+4. Components render that stored URL directly.
+
+**Required environment variables:** `CLOUDINARY_CLOUD_NAME`,
+`CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, and optionally
+`CLOUDINARY_UPLOAD_PRESET`. None of these are currently documented anywhere in
+the repo — see §16.2. They belong in the `.env.example` that still needs
+writing.
+
+### 17.2 The one exception, and why it is not a contradiction
+
+There is a second image path in the codebase, and it is deliberate. **Do not
+"unify" it into Cloudinary without a decision to do so.**
+
+| Path | Serves | Source |
+| --- | --- | --- |
+| **Cloudinary** | Everything the owner manages: product images, collection/bundle covers, hero slides, homepage video | Uploaded at runtime via the dashboard, URL stored in the DB |
+| **Local static manifests** | Brand assets (the 18 logo files) and the *editorial* slots that have no DB-backed source — category tiles, lookbook frames, dark-section backdrops, the cart empty state | Generated at build time by `npm run assets:prepare` from the camera masters in `/images` (gitignored), read through `src/lib/media.ts` and `src/lib/lookbook.ts` |
+
+The reasoning is already written into `src/lib/lookbook.ts`: these editorial
+slots are design decisions, hand-picked from the shoot to sit inside the brand
+palette. They are not content the owner edits, so routing them through an upload
+form would be a downgrade — it would let the homepage's art direction drift with
+no review. They also ship with build-time blur placeholders and generated
+`srcset`, which the Cloudinary path does not currently produce.
+
+So the rule stated precisely: **owner-managed media is Cloudinary; brand and
+editorial assets are the build-time manifest.** A photograph of a garment for
+sale is always the former.
+
+### 17.3 Outstanding work on this path
+
+1. **`next.config.js` allows every host on the internet.** It currently reads
+   `remotePatterns: [{ protocol: "https", hostname: "**" }]`, with a stale
+   comment still saying Cloudflare Images will serve production media. Two
+   problems: it documents a decision that was reversed, and a wildcard here
+   turns `/_next/image` into an open image proxy that any third party can point
+   at arbitrary URLs, on your bandwidth and CPU. **Narrow it to
+   `res.cloudinary.com`** and update the comment to match §17.
+2. **No Cloudinary transformations are being used.** URLs are stored and
+   rendered exactly as returned. Inserting Cloudinary's own
+   `f_auto,q_auto,w_*` transformation segment is where most of §14.8's
+   compression requirement gets satisfied for free — and, given the quota
+   concern §13 raised and §17 preserves, it is also the main lever on
+   bandwidth spend. Worth doing before launch.
+3. **Deleting a product does not delete its Cloudinary assets.** Orphaned
+   uploads accumulate against the quota with nothing reclaiming them.
+
+---
+
 *End of specification. §1–§14 reflect the decisions made during the discovery
-conversation with the client. §15 (admin front-end brief) and §16
-(implementation status audit) were added on 2026-07-31 at the point of handoff
-and reflect the verified state of the codebase on that date.*
+conversation with the client. §15 (admin front-end brief), §16 (implementation
+status audit), and §17 (media/Cloudinary) were added on 2026-07-31 at the point
+of handoff and reflect the verified state of the codebase on that date.*
